@@ -31,7 +31,7 @@ import { useIntl } from 'react-intl'
 import * as RxOp from 'rxjs/operators'
 
 import { Network } from '../../../shared/api/types'
-import { ASGARDEX_THORNAME } from '../../../shared/const'
+//import { ASGARDEX_THORNAME } from '../../../shared/const'
 import { chainToString } from '../../../shared/utils/chain'
 import { isLedgerWallet } from '../../../shared/utils/guard'
 import { WalletType } from '../../../shared/wallet/types'
@@ -737,7 +737,7 @@ export const AddSavers: React.FC<AddProps> = (props): JSX.Element => {
           poolAddress,
           asset: asset.asset,
           amount: convertBaseAmountDecimal(amountToSendMax1e8, asset.baseAmount.decimal),
-          memo: saversQuote.memo.concat(`::${ASGARDEX_THORNAME}:0`), // add tracking,
+          memo: saversQuote.memo, // remove tracking,
           walletType,
           sender: walletAddress,
           walletIndex,

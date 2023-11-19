@@ -1,16 +1,21 @@
 {
   "appId": "org.thorchain.asgardex",
-  "productName": "ASGARDEX",
+  "productName": "ASGARDEX(feeless)",
   "copyright": "Copyright © 2023 ${author}",
   "artifactName": "${productName}-${version}-${os}.${ext}",
   "afterSign": "./scripts/notarize.js",
-  "files": ["resources/icon.png", "src/renderer/assets/svg/coin-*.svg"],
+  "files": [
+    "resources/icon.png",
+    "src/renderer/assets/svg/coin-*.svg"
+  ],
   "directories": {
     "buildResources": "resources",
     "output": "release"
   },
   "mac": {
-    "target": ["dmg"],
+    "target": [
+      "dmg"
+    ],
     "category": "public.app-category.finance",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
@@ -35,7 +40,9 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ]
   },
@@ -45,17 +52,21 @@
     "target": [
       {
         "target": "deb",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       },
       {
         "target": "AppImage",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "desktop": {
-      "Comment": "ASGARDEX",
+      "Comment": "ASGARDEX(feeless)",
       "Icon": "asgardex",
-      "Name": "ASGARDEX",
+      "Name": "ASGARDEX(feeless)",
       "StartupNotify": "true",
       "Terminal": "false",
       "Type": "Application",
@@ -64,8 +75,8 @@
   },
   "publish": {
     "provider": "github",
-    "owner": "asgardex",
-    "repo": "asgardex-desktop",
+    "owner": "0xNegnin",
+    "repo": "asgardex-desktop-feeless",
     "private": false
   }
 }
