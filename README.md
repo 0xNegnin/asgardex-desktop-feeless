@@ -45,4 +45,7 @@ ETH/AVAX/BSC: 0xbf6c604c6ae481d6319513789870196f988052f2
 BNB Beacon: bnb176yz9wrh2anzzavhsunefa20tq0ffqymj5yf83
 LTC: ltc1qa7huxr86p9nxe40tjn0h95eljadczxw3vrnhy0
 ATOM: cosmos1kcjrxrqn3hjhnc2t0pudfvjf5pd0l75v292emg
+DOGE: DCePc4PqJUh2crgz95BTRarGkwNv5wnhkD
+MAYA: maya107uevlvk2wq06k92muptr2y779747a0ppvc327
+DASH: XudvMKpMRZnS1Mn1b7iVhxA31DzyeC3E6i
 ```
