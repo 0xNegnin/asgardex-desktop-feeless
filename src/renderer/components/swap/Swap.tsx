@@ -404,57 +404,57 @@ export const Swap = ({
     [oWalletBalances, sourceAssetDecimal, sourceChainAsset, sourceWalletType]
   )
 
-  // Balance of target asset
-  // Note: Users balances included in its wallet are checked only. Custom (not users) balances are ignored.
-  const oTargetAssetAmount: O.Option<BaseAmount> = useMemo(
-    () =>
-      FP.pipe(
-        allBalances,
-        NEA.fromArray,
-        (oWalletBalances) =>
-          FP.pipe(
-            oTargetWalletType,
-            O.chain((walletType) =>
-              getWalletBalanceByAssetAndWalletType({
-                oWalletBalances,
-                asset: targetAsset,
-                walletType
-              })
-            )
-          ),
-        O.map(({ amount }) => amount)
-      ),
-    [allBalances, oTargetWalletType, targetAsset]
-  )
+  // // Balance of target asset
+  // // Note: Users balances included in its wallet are checked only. Custom (not users) balances are ignored.
+  // const oTargetAssetAmount: O.Option<BaseAmount> = useMemo(
+  //   () =>
+  //     FP.pipe(
+  //       allBalances,
+  //       NEA.fromArray,
+  //       (oWalletBalances) =>
+  //         FP.pipe(
+  //           oTargetWalletType,
+  //           O.chain((walletType) =>
+  //             getWalletBalanceByAssetAndWalletType({
+  //               oWalletBalances,
+  //               asset: targetAsset,
+  //               walletType
+  //             })
+  //           )
+  //         ),
+  //       O.map(({ amount }) => amount)
+  //     ),
+  //   [allBalances, oTargetWalletType, targetAsset]
+  // )
 
-  // Formatted balances of target asset.
-  // Note: Users balances included in its wallet are checked only. Balances of custom (not users) balances are not shown.
-  const targetAssetAmountLabel = useMemo(
-    () =>
-      FP.pipe(
-        oTargetAssetAmount,
-        O.map((amount) =>
-          formatAssetAmountCurrency({
-            amount: baseToAsset(amount),
-            asset: targetAsset,
-            decimal: 8,
-            trimZeros: true
-          })
-        ),
-        O.getOrElse(() =>
-          O.isSome(oTargetWalletType)
-            ? // Zero balances are hidden, but we show a zero amount for users wallets (ledger or keystore)
-              formatAssetAmountCurrency({
-                amount: assetAmount(0, targetAssetDecimal),
-                asset: targetAsset,
-                decimal: 0
-              })
-            : // for unknown recipient we show nothing (for privacy)
-              noDataString
-        )
-      ),
-    [oTargetAssetAmount, oTargetWalletType, targetAsset, targetAssetDecimal]
-  )
+  // // Formatted balances of target asset.
+  // // Note: Users balances included in its wallet are checked only. Balances of custom (not users) balances are not shown.
+  // const targetAssetAmountLabel = useMemo(
+  //   () =>
+  //     FP.pipe(
+  //       oTargetAssetAmount,
+  //       O.map((amount) =>
+  //         formatAssetAmountCurrency({
+  //           amount: baseToAsset(amount),
+  //           asset: targetAsset,
+  //           decimal: 8,
+  //           trimZeros: true
+  //         })
+  //       ),
+  //       O.getOrElse(() =>
+  //         O.isSome(oTargetWalletType)
+  //           ? // Zero balances are hidden, but we show a zero amount for users wallets (ledger or keystore)
+  //             formatAssetAmountCurrency({
+  //               amount: assetAmount(0, targetAssetDecimal),
+  //               asset: targetAsset,
+  //               decimal: 0
+  //             })
+  //           : // for unknown recipient we show nothing (for privacy)
+  //             noDataString
+  //       )
+  //     ),
+  //   [oTargetAssetAmount, oTargetWalletType, targetAsset, targetAssetDecimal]
+  // )
 
   const {
     state: swapState,
@@ -811,7 +811,7 @@ export const Swap = ({
           const address = destinationAddress
           const streamingInt = isStreaming ? streamingInterval : 0
           const streaminQuant = isStreaming ? streamingQuantity : 0
-          const toleranceBps = isStreaming ? 10000 : slipTolerance * 100 // convert to basis points
+          const toleranceBps = isStreaming || network === 'stagenet' ? 10000 : slipTolerance * 100 // convert to basis points
           return {
             fromAsset: fromAsset,
             destinationAsset: destinationAsset,
@@ -835,7 +835,8 @@ export const Swap = ({
       streamingInterval,
       streamingQuantity,
       slipTolerance,
-      applyBps
+      applyBps,
+      network
     ]
   )
   const oQuoteSwapDataMaya: O.Option<QuoteSwapParamsMaya> = useMemo(
@@ -910,7 +911,7 @@ export const Swap = ({
             amount: new CryptoAmount(convertBaseAmountDecimal(amountToSwapMax1e8, sourceAssetDecimal), sourceAsset),
             streamingInterval: isStreaming ? streamingInterval : 0,
             streamingQuantity: isStreaming ? streamingQuantity : 0,
-            toleranceBps: isStreaming ? 10000 : slipTolerance * 100 // convert to basis points
+            toleranceBps: isStreaming || network === 'stagenet' ? 10000 : slipTolerance * 100 // convert to basis points
             //affiliateAddress: ASGARDEX_THORNAME,
             //affiliateBps: applyBps
           }
@@ -957,7 +958,8 @@ export const Swap = ({
     oSourceAssetWB,
     oSourceWalletAddress,
     sourceWalletAddress,
-    applyBps
+    applyBps,
+    network
   ])
 
   // Swap boolean for use later
@@ -1462,9 +1464,11 @@ export const Swap = ({
 
   const minAmountError = useMemo(() => {
     if (isZeroAmountToSwap) return false
-    const convertReccomended = convertBaseAmountDecimal(reccommendedAmountIn.baseAmount, amountToSwapMax1e8.decimal) // needed to make sure comparision is accurate
-    return amountToSwapMax1e8.lt(convertReccomended)
-  }, [amountToSwapMax1e8, isZeroAmountToSwap, reccommendedAmountIn])
+    const minAmountIn = convertBaseAmountDecimal(reccommendedAmountIn.baseAmount, amountToSwapMax1e8.decimal)
+    const swapFeesIn = swapFees.inFee.amount.times(3) // average swap fees
+    const reccomendedAmount = reccommendedAmountIn ? minAmountIn : swapFeesIn
+    return amountToSwapMax1e8.lt(reccomendedAmount)
+  }, [amountToSwapMax1e8, isZeroAmountToSwap, reccommendedAmountIn, swapFees.inFee])
 
   const renderMinAmount = useMemo(
     () => (
@@ -1953,6 +1957,7 @@ export const Swap = ({
             txHash={oTxHash}
             onClick={goToTransaction}
             txUrl={FP.pipe(oTxHash, O.chain(getExplorerTxUrl))}
+            network={network}
             trackable={dex === 'THOR' ? true : false}
           />
         }
@@ -1970,7 +1975,8 @@ export const Swap = ({
     dex,
     extraTxModalContent,
     intl,
-    sourceChain
+    sourceChain,
+    network
   ])
 
   const renderPasswordConfirmationModal = useMemo(() => {
@@ -2363,28 +2369,13 @@ export const Swap = ({
     if (!eqOAsset.equals(prevSourceAsset.current, O.some(sourceAsset))) {
       prevSourceAsset.current = O.some(sourceAsset)
       reloadFeesHandler()
-      // reset swap state
-      resetSwapState()
       resetIsApprovedState()
       resetApproveState()
-      setAmountToSwapMax1e8(initialAmountToSwapMax1e8)
     }
-    // reset data whenever target asset has been changed
     if (!eqOAsset.equals(prevTargetAsset.current, O.some(targetAsset))) {
       prevTargetAsset.current = O.some(targetAsset)
-      // reset swap state
-      resetSwapState()
     }
-  }, [
-    initialAmountToSwapMax1e8,
-    reloadFeesHandler,
-    resetApproveState,
-    resetIsApprovedState,
-    resetSwapState,
-    setAmountToSwapMax1e8,
-    sourceAsset,
-    targetAsset
-  ])
+  }, [reloadFeesHandler, resetApproveState, resetIsApprovedState, resetSwapState, sourceAsset, targetAsset])
 
   const onSwitchAssets = useCallback(async () => {
     // delay to avoid render issues while switching
@@ -2406,20 +2397,21 @@ export const Swap = ({
 
   const disableSubmit: boolean = useMemo(
     () =>
-      disableSwapAction ||
-      lockedWallet ||
-      isZeroAmountToSwap ||
-      walletBalancesLoading ||
-      sourceChainFeeError ||
-      RD.isPending(swapFeesRD) ||
-      RD.isPending(approveState) ||
-      minAmountError ||
-      isCausedSlippage ||
-      swapResultAmountMax.baseAmount.lte(zeroTargetBaseAmountMax1e8) ||
-      O.isNone(oRecipientAddress) ||
-      !canSwap ||
-      customAddressEditActive ||
-      quoteExpired,
+      network !== 'stagenet' &&
+      (disableSwapAction ||
+        lockedWallet ||
+        isZeroAmountToSwap ||
+        walletBalancesLoading ||
+        sourceChainFeeError ||
+        RD.isPending(swapFeesRD) ||
+        RD.isPending(approveState) ||
+        minAmountError ||
+        isCausedSlippage ||
+        swapResultAmountMax.baseAmount.lte(zeroTargetBaseAmountMax1e8) ||
+        O.isNone(oRecipientAddress) ||
+        !canSwap ||
+        customAddressEditActive ||
+        quoteExpired),
     [
       disableSwapAction,
       lockedWallet,
@@ -2435,7 +2427,8 @@ export const Swap = ({
       oRecipientAddress,
       canSwap,
       customAddressEditActive,
-      quoteExpired
+      quoteExpired,
+      network
     ]
   )
 
@@ -3054,12 +3047,12 @@ export const Swap = ({
                       </div>
                     </div>
                     {/* recipient balance */}
-                    <div className="flex w-full items-center justify-between pl-10px text-[12px]">
+                    {/* <div className="flex w-full items-center justify-between pl-10px text-[12px]">
                       <div>{intl.formatMessage({ id: 'common.recipient' })}</div>
                       <div className="truncate pl-20px text-[13px] normal-case leading-normal">
                         {walletBalancesLoading ? loadingString : targetAssetAmountLabel}
                       </div>
-                    </div>
+                    </div> */}
                   </>
                 )}
                 {/* memo */}

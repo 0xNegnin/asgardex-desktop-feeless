@@ -15,10 +15,10 @@ This is a fork of [the original repository for ASGARDEX](https://github.com/asga
    - [Windows](https://git-scm.com/download/win)
    - [Linux](https://git-scm.com/download/linux)
    - [Mac](https://git-scm.com/download/mac)
-2. Install [NodeJS v16.15.0](https://nodejs.org/download/release/v16.15.0/) for your operating system.
-   - Windows: [Download](https://nodejs.org/download/release/v16.15.0/node-v16.15.0-x64.msi) (Windows users must also install the optional [Chocolatey](https://chocolatey.org/install) package manager that is prompted after NodeJS is installed)
-   - Linux: It is recommended to install NodeJS with your distribution specific package manager, alternatively you can find the binary [Download](https://nodejs.org/download/release/v16.15.0/) or try the following using any default command line terminal: `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash && nvm install 16.15.0 && nvm use 16.15.0`
-   - Mac: `brew install node@16.15.0`
+2. Install [NodeJS v18.16.1](https://nodejs.org/download/release/v18.16.1/) for your operating system.
+   - Windows: [Download](https://nodejs.org/download/release/v18.16.1/node-v18.16.1-x64.msi) (Windows users must also install the optional [Chocolatey](https://chocolatey.org/install) package manager that is prompted after NodeJS is installed)
+   - Linux: It is recommended to install NodeJS with your distribution specific package manager, alternatively you can find the binary [Download](https://nodejs.org/download/release/v18.16.1/) or try the following using any default command line terminal: `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash && nvm install 18.16.1 && nvm use 18.16.1`
+   - Mac: `brew install node@18.16.1`
 3. Open a command line terminal for your operating system
    - Windows: Users should use PowerShell (found by searching 'PowerShell' from the Windows Start menu)
    - Linux/Mac: Users should use any default command line terminal

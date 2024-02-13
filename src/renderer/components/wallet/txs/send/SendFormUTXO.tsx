@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as RD from '@devexperts/remote-data-ts'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
 import { FeeOption, FeesWithRates } from '@xchainjs/xchain-client'
-import { LTCChain, LTC_DECIMAL } from '@xchainjs/xchain-litecoin'
+import { MayachainQuery } from '@xchainjs/xchain-mayachain-query'
 import { PoolDetails } from '@xchainjs/xchain-midgard'
 import { ThorchainQuery } from '@xchainjs/xchain-thorchain-query'
 import {
@@ -26,19 +26,20 @@ import * as O from 'fp-ts/lib/Option'
 import { useIntl } from 'react-intl'
 
 import { Network } from '../../../../../shared/api/types'
-import { AssetLTC } from '../../../../../shared/utils/asset'
 import { isKeystoreWallet, isLedgerWallet } from '../../../../../shared/utils/guard'
 import { WalletType } from '../../../../../shared/wallet/types'
 import { ZERO_BASE_AMOUNT } from '../../../../const'
-import { isUSDAsset } from '../../../../helpers/assetHelper'
+import { isDashAsset, isUSDAsset } from '../../../../helpers/assetHelper'
+import { getChainFeeBounds } from '../../../../helpers/chainHelper'
 import { getPoolPriceValue } from '../../../../helpers/poolHelper'
 import { loadingString } from '../../../../helpers/stringHelper'
 import { usePricePool } from '../../../../hooks/usePricePool'
+import { usePricePoolMaya } from '../../../../hooks/usePricePoolMaya'
 import { useSubscriptionState } from '../../../../hooks/useSubscriptionState'
 import { INITIAL_SEND_STATE } from '../../../../services/chain/const'
-import { Memo, SendTxState, SendTxStateHandler } from '../../../../services/chain/types'
+import { FeeRD, Memo, SendTxState, SendTxStateHandler } from '../../../../services/chain/types'
 import { AddressValidation, GetExplorerTxUrl, OpenExplorerTxUrl, WalletBalances } from '../../../../services/clients'
-import { FeesWithRatesRD } from '../../../../services/litecoin/types'
+import { FeesWithRatesRD } from '../../../../services/utxo/types'
 import { SelectedWalletAsset, ValidatePasswordHandler } from '../../../../services/wallet/types'
 import { WalletBalance } from '../../../../services/wallet/types'
 import { LedgerConfirmationModal, WalletPasswordConfirmationModal } from '../../../modal/confirmation'
@@ -50,8 +51,7 @@ import { InputBigNumber } from '../../../uielements/input'
 import { ShowDetails } from '../../../uielements/showDetails'
 import { Slider } from '../../../uielements/slider'
 import { AccountSelector } from '../../account'
-import * as H from '../TxForm.helpers'
-import { checkMemo } from '../TxForm.helpers'
+import { checkMemo, matchedWalletType, memoCorrection, renderedWalletType } from '../TxForm.helpers'
 import * as Styled from '../TxForm.styles'
 import { validateTxAmountInput } from '../TxForm.util'
 import { DEFAULT_FEE_OPTION } from './Send.const'
@@ -76,11 +76,12 @@ export type Props = {
   reloadFeesHandler: (memo?: Memo) => void
   validatePassword$: ValidatePasswordHandler
   thorchainQuery: ThorchainQuery
+  mayachainQuery: MayachainQuery
   network: Network
   poolDetails: PoolDetails
 }
 
-export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
+export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
   const {
     asset: { walletType, walletIndex, hdMode, walletAddress },
     poolDetails,
@@ -94,15 +95,19 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
     reloadFeesHandler,
     validatePassword$,
     thorchainQuery,
+    mayachainQuery,
     network
   } = props
 
   const intl = useIntl()
 
   const { asset } = balance
-  const pricePool = usePricePool()
 
   const [amountToSend, setAmountToSend] = useState<BaseAmount>(ZERO_BASE_AMOUNT)
+
+  const pricePoolThor = usePricePool()
+  const pricePoolMaya = usePricePoolMaya() // Dash source of price truth
+  const pricePool = isDashAsset(asset) ? pricePoolMaya : pricePoolThor
 
   const {
     state: sendTxState,
@@ -112,17 +117,24 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
 
   const isLoading = useMemo(() => RD.isPending(sendTxState.status), [sendTxState.status])
 
-  const [selectedFeeOption, setSelectedFeeOption] = useState<FeeOption>(DEFAULT_FEE_OPTION)
+  const [recipientAddress, setRecipientAddress] = useState<Address>('')
+
+  const [selectedFeeOptionKey, setSelectedFeeOptionKey] = useState<FeeOption>(DEFAULT_FEE_OPTION)
 
   const [InboundAddress, setInboundAddress] = useState<string>('')
 
   const [assetFee, setAssetFee] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
+  const [feeRate, setFeeRate] = useState<number>(0)
+  const [feeDeduction, setFeeDeduction] = useState<BaseAmount>(baseAmount(0))
+  const [amountPriceValue, setAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
 
   const [feePriceValue, setFeePriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
-  const [amountPriceValue, setAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
+
   const [warningMessage, setWarningMessage] = useState<string>('')
-  const [currentMemo, setCurrentMemo] = useState('')
+  const [showDetails, setShowDetails] = useState<boolean>(true)
   const [swapMemoDetected, setSwapMemoDetected] = useState<boolean>(false)
+
+  const [currentMemo, setCurrentMemo] = useState('')
   const [affiliateTracking, setAffiliateTracking] = useState<string>('')
 
   const [form] = Form.useForm<FormValues>()
@@ -130,32 +142,28 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
   const handleMemo = useCallback(() => {
     let memoValue = form.getFieldValue('memo') as string
 
-    // Check if a swap memo is detected
     if (checkMemo(memoValue)) {
-      const suffixPattern = /:dx:\d+$/ // Regex to match ':dx:' followed by any number
-
-      // Check if memo ends with the suffix pattern
-      if (!suffixPattern.test(memoValue)) {
-        // Remove any partial ':dx:' pattern before appending
-        memoValue = memoValue.replace(/:dx:\d*$/, '')
-
-        // Append ':dx:0'
-        //memoValue += ':dx:5'
-      }
-
+      memoValue = memoCorrection(memoValue)
       setSwapMemoDetected(true)
-      setAffiliateTracking(
-        memoValue.endsWith(':dx:10') ? `Swap memo detected` : `Swap memo detected 5bps affiliate fee applied`
-      )
+
+      // Set affiliate tracking message
+      setAffiliateTracking(`Swap memo detected 5bps affiliate fee applied`)
     } else {
       setSwapMemoDetected(false)
     }
-
     // Update the state with the adjusted memo value
     setCurrentMemo(memoValue)
   }, [form])
-
   const prevFeesWithRatesRef = useRef<O.Option<FeesWithRates>>(O.none)
+
+  const feeRD: FeeRD = useMemo(
+    () =>
+      FP.pipe(
+        feesWithRatesRD,
+        RD.map(({ fees }) => fees[selectedFeeOptionKey])
+      ),
+    [feesWithRatesRD, selectedFeeOptionKey]
+  )
 
   const oFeesWithRates: O.Option<FeesWithRates> = useMemo(
     () => FP.pipe(feesWithRatesRD, RD.toOption),
@@ -164,15 +172,17 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
 
   const feesAvailable = useMemo(() => O.isSome(oFeesWithRates), [oFeesWithRates])
 
-  // useEffect to fetch data from query
+  // useEffect to fetch data from query switch queries based on asset
   useEffect(() => {
     const fetchData = async () => {
-      const inboundDetails = await thorchainQuery.thorchainCache.getInboundDetails()
-      setInboundAddress(inboundDetails[LTCChain].address)
+      const inboundDetails = isDashAsset(asset)
+        ? await mayachainQuery.getInboundDetails()
+        : await thorchainQuery.thorchainCache.getInboundDetails()
+      setInboundAddress(inboundDetails[asset.chain].address)
     }
 
     fetchData()
-  }, [thorchainQuery])
+  }, [asset, asset.chain, mayachainQuery, thorchainQuery])
 
   // Store latest fees as `ref`
   // needed to display previous fee while reloading
@@ -189,27 +199,25 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
     () =>
       FP.pipe(
         oFeesWithRates,
-        O.map(({ fees }) => {
-          const fee = fees[selectedFeeOption]
+        O.map(({ fees, rates }) => {
+          const fee = fees[selectedFeeOptionKey]
           prevSelectedFeeRef.current = O.some(fee)
+          setFeeRate(rates[selectedFeeOptionKey])
+          setFeeDeduction(fees[FeeOption.Fastest])
+          setAssetFee(new CryptoAmount(fees[selectedFeeOptionKey], asset))
           return fee
         })
       ),
-    [oFeesWithRates, selectedFeeOption]
+    [asset, oFeesWithRates, selectedFeeOptionKey]
   )
 
   const oFeeBaseAmount: O.Option<BaseAmount> = useMemo(
     () =>
       FP.pipe(
         oFeesWithRates,
-        O.map(({ fees }) => {
-          const fee = fees[selectedFeeOption]
-          prevSelectedFeeRef.current = O.some(fee)
-          setAssetFee(new CryptoAmount(fees[selectedFeeOption], asset))
-          return fee
-        })
+        O.map(({ fees }) => fees[selectedFeeOptionKey])
       ),
-    [asset, oFeesWithRates, selectedFeeOption]
+    [oFeesWithRates, selectedFeeOptionKey]
   )
 
   const isFeeError = useMemo(() => {
@@ -231,7 +239,7 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
       {
         balance: formatAssetAmountCurrency({
           amount: baseToAsset(balance.amount),
-          asset: AssetLTC,
+          asset: asset,
           trimZeros: true
         })
       }
@@ -242,7 +250,7 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
         {msg}
       </Styled.Label>
     )
-  }, [balance.amount, intl, isFeeError])
+  }, [asset, balance.amount, intl, isFeeError])
 
   const feeOptionsLabel: Record<FeeOption, string> = useMemo(
     () => ({
@@ -255,9 +263,9 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
 
   const renderFeeOptionsRadioGroup = useCallback(
     ({ rates }: FeesWithRates) => {
-      const onChangeHandler = (e: RadioChangeEvent) => setSelectedFeeOption(e.target.value)
+      const onChangeHandler = (e: RadioChangeEvent) => setSelectedFeeOptionKey(e.target.value)
       return (
-        <StyledR.Radio.Group onChange={onChangeHandler} value={selectedFeeOption} disabled={isLoading}>
+        <StyledR.Radio.Group onChange={onChangeHandler} value={selectedFeeOptionKey} disabled={isLoading}>
           {Object.keys(rates).map((key) => (
             <StyledR.Radio value={key as FeeOption} key={key}>
               <StyledR.RadioLabel>{feeOptionsLabel[key as FeeOption]}</StyledR.RadioLabel>
@@ -267,7 +275,7 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
       )
     },
 
-    [feeOptionsLabel, isLoading, selectedFeeOption]
+    [feeOptionsLabel, isLoading, selectedFeeOptionKey]
   )
 
   const renderFeeOptions = useMemo(
@@ -309,17 +317,16 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
       FP.pipe(
         selectedFee,
         O.alt(() => prevSelectedFeeRef.current),
-        O.map((fee) => {
-          const max = balance.amount.minus(fee)
+        O.map(() => {
+          const max = balance.amount.minus(feeDeduction)
           const zero = baseAmount(0, max.decimal)
           return max.gt(zero) ? max : zero
         }),
         // Set maxAmount to zero as long as we dont have a feeRate
         O.getOrElse(() => ZERO_BASE_AMOUNT)
       ),
-    [balance.amount, selectedFee]
+    [balance.amount, feeDeduction, selectedFee]
   )
-
   // store maxAmountValue
   const [maxAmmountPriceValue, setMaxAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
 
@@ -417,18 +424,12 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
     return price ? `${price} (${amount}) ` : amount
   }, [amountPriceValue, amountToSend, asset])
 
-  const isMaxButtonDisabled = useMemo(
-    () =>
-      isLoading ||
-      FP.pipe(
-        selectedFee,
-        O.fold(
-          () => true,
-          () => false
-        )
-      ),
-    [isLoading, selectedFee]
-  )
+  useEffect(() => {
+    // Whenever `amountToSend` has been updated, we put it back into input field
+    form.setFieldsValue({
+      amount: baseToAsset(amountToSend).amount()
+    })
+  }, [amountToSend, form])
 
   const amountValidator = useCallback(
     async (_: unknown, value: BigNumber) => {
@@ -483,10 +484,10 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
         walletIndex,
         hdMode,
         sender: walletAddress,
-        recipient: form.getFieldValue('recipient'),
+        recipient: recipientAddress,
         asset,
         amount: amountToSend,
-        feeOption: selectedFeeOption,
+        feeOption: selectedFeeOptionKey,
         memo: currentMemo
       })
     )
@@ -497,10 +498,10 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
     walletIndex,
     hdMode,
     walletAddress,
-    form,
+    recipientAddress,
     asset,
     amountToSend,
-    selectedFeeOption,
+    selectedFeeOptionKey,
     currentMemo
   ])
 
@@ -522,9 +523,9 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
           onSuccess={onSuccessHandler}
           onClose={onCloseHandler}
           visible={showConfirmationModal}
-          chain={LTCChain}
+          chain={asset.chain}
           description2={intl.formatMessage({ id: 'ledger.sign' })}
-          addresses={O.none}
+          addresses={O.some({ sender: walletAddress, recipient: form.getFieldValue('recipient') })}
         />
       )
     } else if (isKeystoreWallet(walletType)) {
@@ -538,7 +539,7 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
     } else {
       return null
     }
-  }, [intl, network, submitTx, showConfirmationModal, validatePassword$, walletType])
+  }, [walletType, submitTx, network, showConfirmationModal, asset.chain, intl, walletAddress, form, validatePassword$])
 
   const renderTxModal = useMemo(
     () =>
@@ -569,54 +570,59 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
   const uiFeesRD: UIFeesRD = useMemo(
     () =>
       FP.pipe(
-        feesWithRatesRD,
-        RD.map((fees) => [{ asset: AssetLTC, amount: fees.fees[selectedFeeOption] }])
+        feeRD,
+        RD.map((fee) => [{ asset: asset, amount: fee }])
       ),
 
-    [feesWithRatesRD, selectedFeeOption]
+    [asset, feeRD]
   )
-
-  const reloadFees = useCallback(() => {
-    reloadFeesHandler(currentMemo)
-  }, [currentMemo, reloadFeesHandler])
-
-  const addMaxAmountHandler = useCallback(() => setAmountToSend(maxAmount), [maxAmount])
 
   const onChangeInput = useCallback(
     async (value: BigNumber) => {
       // we have to validate input before storing into the state
       amountValidator(undefined, value)
         .then(() => {
-          setAmountToSend(assetToBase(assetAmount(value)))
+          setAmountToSend(assetToBase(assetAmount(value, balance.amount.decimal)))
         })
         .catch(() => {}) // do nothing, Ant' form does the job for us to show an error message
     },
-    [amountValidator]
+    [amountValidator, balance.amount.decimal]
   )
 
-  useEffect(() => {
-    // Whenever `amountToSend` has been updated, we put it back into input field
-    form.setFieldsValue({
-      amount: baseToAsset(amountToSend).amount()
-    })
-  }, [amountToSend, form])
+  const reloadFees = useCallback(() => {
+    reloadFeesHandler(currentMemo)
+  }, [currentMemo, reloadFeesHandler])
 
   // whenever the memo is updated call reload fees
   useEffect(() => {
     reloadFees()
-  }, [currentMemo, reloadFees])
+  }, [feeRate, currentMemo, reloadFees])
 
-  const [recipientAddress, setRecipientAddress] = useState<Address>('')
+  const addMaxAmountHandler = useCallback(() => setAmountToSend(maxAmount), [maxAmount])
+
+  const isMaxButtonDisabled = useMemo(
+    () =>
+      isLoading ||
+      FP.pipe(
+        selectedFee,
+        O.fold(
+          () => true,
+          () => false
+        )
+      ),
+    [isLoading, selectedFee]
+  )
+
   const handleOnKeyUp = useCallback(() => {
     setRecipientAddress(form.getFieldValue('recipient'))
   }, [form])
 
   const oMatchedWalletType: O.Option<WalletType> = useMemo(
-    () => H.matchedWalletType(balances, recipientAddress),
+    () => matchedWalletType(balances, recipientAddress),
     [balances, recipientAddress]
   )
-  const [showDetails, setShowDetails] = useState<boolean>(true)
-  const renderWalletType = useMemo(() => H.renderedWalletType(oMatchedWalletType), [oMatchedWalletType])
+
+  const renderWalletType = useMemo(() => renderedWalletType(oMatchedWalletType), [oMatchedWalletType])
 
   return (
     <>
@@ -647,14 +653,14 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
                 min={0}
                 size="large"
                 disabled={isLoading}
-                decimal={LTC_DECIMAL}
+                decimal={balance.amount.decimal}
                 onChange={onChangeInput}
               />
             </Styled.FormItem>
             <MaxBalanceButton
               className="mb-10px"
               color="neutral"
-              balance={{ amount: maxAmount, asset: AssetLTC }}
+              balance={{ amount: maxAmount, asset: asset }}
               maxDollarValue={maxAmmountPriceValue}
               onClick={addMaxAmountHandler}
               disabled={isMaxButtonDisabled}
@@ -697,6 +703,8 @@ export const SendFormLTC: React.FC<Props> = (props): JSX.Element => {
                   recipient={recipientAddress}
                   amountLabel={amountLabel}
                   priceFeeLabel={priceFeeLabel}
+                  upperFeeBound={getChainFeeBounds(asset.chain)}
+                  feeRate={feeRate}
                   currentMemo={currentMemo}
                   asset={asset}
                 />
