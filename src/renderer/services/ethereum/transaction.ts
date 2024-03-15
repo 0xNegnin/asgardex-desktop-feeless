@@ -1,5 +1,5 @@
 import * as RD from '@devexperts/remote-data-ts'
-import { TxHash } from '@xchainjs/xchain-client'
+import { Network, TxHash } from '@xchainjs/xchain-client'
 import { ETHChain } from '@xchainjs/xchain-ethereum'
 import { isApproved } from '@xchainjs/xchain-evm'
 import { baseAmount } from '@xchainjs/xchain-util'
@@ -18,7 +18,7 @@ import {
   IPCLedgerSendTxParams,
   ipcLedgerSendTxParamsIO
 } from '../../../shared/api/io'
-import { LedgerError, Network } from '../../../shared/api/types'
+import { LedgerError } from '../../../shared/api/types'
 import { DEPOSIT_EXPIRATION_OFFSET, ETHAddress } from '../../../shared/ethereum/const'
 import { ROUTER_ABI } from '../../../shared/evm/abi'
 import { getBlocktime } from '../../../shared/evm/provider'
@@ -224,6 +224,7 @@ export const createTransactionService = (client$: Client$, network$: Network$): 
     }
 
     const ipcParams: IPCLedgerApproveERC20TokenParams = {
+      chain: ETHChain,
       network,
       contractAddress,
       spenderAddress,
@@ -231,7 +232,6 @@ export const createTransactionService = (client$: Client$, network$: Network$): 
       evmHdMode: hdMode
     }
     const encoded = ipcLedgerApproveERC20TokenParamsIO.encode(ipcParams)
-
     return FP.pipe(
       Rx.from(window.apiHDWallet.approveLedgerERC20Token(encoded)),
       RxOp.switchMap(
@@ -241,7 +241,7 @@ export const createTransactionService = (client$: Client$, network$: Network$): 
               Rx.of(
                 RD.failure({
                   errorId: ErrorId.APPROVE_LEDGER_TX,
-                  msg: `Approve Ledger ERC20 token failed. (${msg})`
+                  msg: `Approve Ledger ERC20 token failed: (${msg})`
                 })
               ),
             (txHash) => Rx.of(RD.success(txHash))
@@ -252,7 +252,7 @@ export const createTransactionService = (client$: Client$, network$: Network$): 
         Rx.of(
           RD.failure({
             errorId: ErrorId.APPROVE_LEDGER_TX,
-            msg: `Approve Ledger ERC20 token failed. ${
+            msg: `Approve Ledger ERC20 token failed here. ${
               isError(error) ? error?.message ?? error.toString() : error.toString()
             }`
           })
@@ -265,7 +265,7 @@ export const createTransactionService = (client$: Client$, network$: Network$): 
   const approveERC20Token$ = (params: ApproveParams): TxHashLD => {
     const { contractAddress, network, walletType } = params
     // check contract address before approving
-    if (network === 'mainnet' && !addressInERC20Whitelist(contractAddress))
+    if (network === Network.Mainnet && !addressInERC20Whitelist(contractAddress))
       return Rx.of(
         RD.failure({
           msg: `Contract address ${contractAddress} is black listed`,

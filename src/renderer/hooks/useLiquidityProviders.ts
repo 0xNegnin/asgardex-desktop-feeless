@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import * as RD from '@devexperts/remote-data-ts'
 import { Address } from '@xchainjs/xchain-util'
@@ -6,9 +6,9 @@ import { Asset } from '@xchainjs/xchain-util'
 import * as A from 'fp-ts/lib/Array'
 import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
-import { useObservableState } from 'observable-hooks'
 
-import { Network } from '../../shared/api/types'
+import { Dex } from '../../shared/api/types'
+import { useMayachainContext } from '../contexts/MayachainContext'
 import { useThorchainContext } from '../contexts/ThorchainContext'
 import { eqAddress, eqOString } from '../helpers/fp/eq'
 import { sequenceTOption } from '../helpers/fpHelpers'
@@ -25,16 +25,30 @@ import { AssetsWithAmount1e8 } from '../types/asgardex'
 
 export const useLiquidityProviders = ({
   asset,
-  runeAddress,
-  assetAddress
+  dexAssetAddress,
+  assetAddress,
+  dex
 }: {
   asset: Asset
-  runeAddress: Address
+  dexAssetAddress: Address
   assetAddress: Address
+  dex: Dex
 }) => {
-  const { getLiquidityProviders } = useThorchainContext()
+  const { getLiquidityProviders: getLiquidityProvidersThor } = useThorchainContext()
+  const { getLiquidityProviders: getLiquidityProvidersMaya } = useMayachainContext()
 
-  const [providers] = useObservableState<LiquidityProvidersRD, Network>(() => getLiquidityProviders(asset), RD.initial)
+  const [providers, setProviders] = useState<LiquidityProvidersRD>(RD.initial)
+
+  useEffect(() => {
+    // Determine the correct function based on the current value of `dex`
+    const getLiquidityProviders = dex === 'THOR' ? getLiquidityProvidersThor : getLiquidityProvidersMaya
+
+    // Create the observable and subscribe
+    const subscription = getLiquidityProviders(asset).subscribe(setProviders)
+
+    // Cleanup the subscription when the component unmounts or when `dex` or `asset` changes
+    return () => subscription.unsubscribe()
+  }, [dex, asset, getLiquidityProvidersThor, getLiquidityProvidersMaya])
 
   /**
    * Gets liquidity provider data by given RUNE + asset address
@@ -47,12 +61,12 @@ export const useLiquidityProviders = ({
         RD.map(
           A.findFirst(
             (provider) =>
-              eqOString.equals(provider.runeAddress, O.some(runeAddress)) &&
+              eqOString.equals(provider.dexAssetAddress, O.some(dexAssetAddress)) &&
               eqOString.equals(provider.assetAddress, O.some(assetAddress))
           )
         )
       ),
-    [assetAddress, providers, runeAddress]
+    [assetAddress, providers, dexAssetAddress]
   )
 
   /**
@@ -67,7 +81,7 @@ export const useLiquidityProviders = ({
         RD.map((oLiquidityProvider) =>
           FP.pipe(
             oLiquidityProvider,
-            O.map(({ pendingAsset, pendingRune }) => [pendingAsset, pendingRune]),
+            O.map(({ pendingAsset, pendingDexAsset }) => [pendingAsset, pendingDexAsset]),
             // filter `None` out from list
             O.map(A.filterMap(FP.identity)),
             O.getOrElse<AssetsWithAmount1e8>(() => [])
@@ -85,13 +99,14 @@ export const useLiquidityProviders = ({
           A.filter(
             (provider) =>
               // rune side
-              (eqOString.equals(provider.runeAddress, O.some(runeAddress)) && O.isNone(provider.assetAddress)) ||
+              (eqOString.equals(provider.dexAssetAddress, O.some(dexAssetAddress)) &&
+                O.isNone(provider.assetAddress)) ||
               // asset side
-              (eqOString.equals(provider.assetAddress, O.some(assetAddress)) && O.isNone(provider.runeAddress))
+              (eqOString.equals(provider.assetAddress, O.some(assetAddress)) && O.isNone(provider.dexAssetAddress))
           )
         )
       ),
-    [providers, runeAddress, assetAddress]
+    [providers, dexAssetAddress, assetAddress]
   )
 
   /**
@@ -105,10 +120,10 @@ export const useLiquidityProviders = ({
           FP.pipe(
             providers,
             A.reduce<LiquidityProvider, LiquidityProviderHasAsymAssets>(
-              { asset: false, rune: false },
+              { asset: false, dexAsset: false },
               (acc, provider) => ({
                 asset: O.isSome(provider.assetAddress) || acc.asset,
-                rune: O.isSome(provider.runeAddress) || acc.rune
+                dexAsset: O.isSome(provider.dexAssetAddress) || acc.dexAsset
               })
             )
           )
@@ -128,25 +143,25 @@ export const useLiquidityProviders = ({
       FP.pipe(
         providers,
         RD.map(
-          A.findFirstMap(({ runeAddress: oRuneAddress, assetAddress: oAssetAddress }) =>
+          A.findFirstMap(({ dexAssetAddress: oDexAssetAddress, assetAddress: oAssetAddress }) =>
             FP.pipe(
-              sequenceTOption(oRuneAddress, oAssetAddress),
-              O.chain(([providerRuneAddress, providerAssetAddress]) =>
+              sequenceTOption(oDexAssetAddress, oAssetAddress),
+              O.chain(([providerDexAssetAddress, providerAssetAddress]) =>
                 // check asset side for given RUNE address
-                (eqAddress.equals(providerRuneAddress, runeAddress) &&
-                  !eqAddress.equals(providerAssetAddress, assetAddress)) ||
+                (eqAddress.equals(providerDexAssetAddress.toLowerCase(), dexAssetAddress) &&
+                  !eqAddress.equals(providerAssetAddress.toLowerCase(), assetAddress)) ||
                 // check rune side for given asset address
-                (eqAddress.equals(providerAssetAddress, assetAddress) &&
-                  !eqAddress.equals(providerRuneAddress, runeAddress))
+                (eqAddress.equals(providerAssetAddress.toLowerCase(), assetAddress) &&
+                  !eqAddress.equals(providerDexAssetAddress.toLowerCase(), dexAssetAddress))
                   ? // If there is a missmatch, return this discovered pair (which is a previous deposit pair)
-                    O.some({ runeAddress: providerRuneAddress, assetAddress: providerAssetAddress })
+                    O.some({ dexAssetAddress: providerDexAssetAddress, assetAddress: providerAssetAddress })
                   : O.none
               )
             )
           )
         )
       ),
-    [assetAddress, providers, runeAddress]
+    [assetAddress, providers, dexAssetAddress]
   )
 
   return {
