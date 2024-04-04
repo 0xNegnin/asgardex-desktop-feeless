@@ -1,3 +1,29 @@
+# 1.21.5 (2024-03-28)
+
+## Add
+
+- Add MayaNode support on Bonds Tab [#175](https://github.com/asgardex/asgardex-desktop/issues/175)
+- Increase min saw amount before affiliate fee [#155](https://github.com/asgardex/asgardex-desktop/issues/155)
+
+## Updates/Fixes
+
+- RUNE Depost: Bond -> Memo not sent. [#185](https://github.com/asgardex/asgardex-desktop/issues/185)
+- Pending assets found' mistakenly suggests both assets should be RUNE [#174](https://github.com/asgardex/asgardex-desktop/issues/174)
+- BNB (and AVAX) Fee outside bounds [#183](https://github.com/asgardex/asgardex-desktop/issues/183)
+- Remove the limit of 1 BTC (and any other limits for other token/coin) for viewing the preview of the quotes [#186](https://github.com/asgardex/asgardex-desktop/issues/186)
+
+# 1.21.4 (2024-03-15)
+
+## Add
+
+- Maya LP Support
+
+## Updates/Fixes
+
+- Re Order Wallet Assets [#170](https://github.com/asgardex/asgardex-desktop/issues/170)
+- Fix: Lpshares Tab [#167](https://github.com/asgardex/asgardex-desktop/issues/167)
+- Specify which Dex when there is a Chain Halt [#172](https://github.com/asgardex/asgardex-desktop/issues/172)
+
 # 1.21.3 (2024-03-11)
 
 ## Add
