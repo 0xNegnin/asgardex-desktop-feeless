@@ -1,4 +1,5 @@
 import TransportNodeHidSingleton from '@ledgerhq/hw-transport-node-hid-singleton'
+import { ARBChain } from '@xchainjs/xchain-arbitrum'
 import { AVAXChain } from '@xchainjs/xchain-avax'
 import { BNBChain } from '@xchainjs/xchain-binance'
 import { BTCChain } from '@xchainjs/xchain-bitcoin'
@@ -19,12 +20,14 @@ import { IPCLedgerDepositTxParams, IPCLedgerSendTxParams } from '../../../shared
 import { LedgerError, LedgerErrorId } from '../../../shared/api/types'
 import { chainToString, isEnabledChain } from '../../../shared/utils/chain'
 import { isError, isEvmHDMode } from '../../../shared/utils/guard'
+import * as ARB from './arb/transaction'
 import * as AVAX from './avax/transaction'
 import * as BNB from './binance/transaction'
 import * as BTC from './bitcoin/transaction'
 import * as BCH from './bitcoincash/transaction'
 import * as BSC from './bsc/transaction'
 import * as COSMOS from './cosmos/transaction'
+import * as DASH from './dash/transaction'
 import * as DOGE from './doge/transaction'
 import * as ETH from './ethereum/transaction'
 import * as LTC from './litecoin/transaction'
@@ -48,7 +51,7 @@ export const sendTx = async ({
   try {
     const transport = await TransportNodeHidSingleton.create()
     let res: E.Either<LedgerError, string>
-    if (!isEnabledChain(chain) || chain === MAYAChain || chain === DASHChain || chain === KUJIChain) {
+    if (!isEnabledChain(chain) || chain === MAYAChain || chain === KUJIChain) {
       res = E.left({
         errorId: LedgerErrorId.NOT_IMPLEMENTED,
         msg: `${chain} is not supported for 'sendTx'`
@@ -115,6 +118,18 @@ export const sendTx = async ({
           break
         case DOGEChain:
           res = await DOGE.send({
+            transport,
+            network,
+            sender,
+            recipient,
+            amount,
+            feeRate,
+            memo,
+            walletIndex
+          })
+          break
+        case DASHChain:
+          res = await DASH.send({
             transport,
             network,
             sender,
@@ -215,6 +230,36 @@ export const sendTx = async ({
             })
           }
           break
+        case ARBChain:
+          if (!asset) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Asset needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!feeOption) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Fee option needs to be set to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!isEvmHDMode(hdMode)) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Invalid EvmHDMode set - needed to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else {
+            res = await ARB.send({
+              asset,
+              transport,
+              network,
+              recipient,
+              amount,
+              memo,
+              walletIndex,
+              feeOption,
+              evmHDMode: hdMode
+            })
+          }
+          break
         case GAIAChain:
           if (!asset) {
             res = E.left({
@@ -271,7 +316,7 @@ export const deposit = async ({
       errorId: LedgerErrorId.NOT_IMPLEMENTED,
       msg: `${chain} is not supported for 'deposit'`
     })
-    if (!isEnabledChain(chain) || chain === MAYAChain || chain === DASHChain || chain === KUJIChain) {
+    if (!isEnabledChain(chain) || chain === MAYAChain || chain === KUJIChain) {
       res = notSupportedError
     } else {
       switch (chain) {
@@ -326,14 +371,96 @@ export const deposit = async ({
             })
           }
           break
+        case AVAXChain:
+          if (!router) {
+            return E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Router address needs to be defined to send Ledger transaction  on ${chainToString(chain)}`
+            })
+          } else if (!asset) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Asset needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!recipient) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Recipient needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!feeOption) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Fee option needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!isEvmHDMode(hdMode)) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Invalid EthHDMode set - needed to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else {
+            res = await AVAX.deposit({
+              asset,
+              router,
+              transport,
+              network,
+              amount,
+              memo,
+              walletIndex,
+              recipient,
+              feeOption,
+              evmHDMode: hdMode
+            })
+          }
+          break
+        case BSCChain:
+          if (!router) {
+            return E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Router address needs to be defined to send Ledger transaction  on ${chainToString(chain)}`
+            })
+          } else if (!asset) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Asset needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!recipient) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Recipient needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!feeOption) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Fee option needs to be defined to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else if (!isEvmHDMode(hdMode)) {
+            res = E.left({
+              errorId: LedgerErrorId.INVALID_DATA,
+              msg: `Invalid EthHDMode set - needed to send Ledger transaction on ${chainToString(chain)}`
+            })
+          } else {
+            res = await BSC.deposit({
+              asset,
+              router,
+              transport,
+              network,
+              amount,
+              memo,
+              walletIndex,
+              recipient,
+              feeOption,
+              evmHDMode: hdMode
+            })
+          }
+          break
         case BNBChain:
         case BTCChain:
         case LTCChain:
         case BCHChain:
         case DOGEChain:
+        case DASHChain:
         case GAIAChain:
-        case AVAXChain:
-        case BSCChain:
+        case ARBChain:
           res = notSupportedError
           break
       }
