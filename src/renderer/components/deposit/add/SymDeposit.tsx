@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as RD from '@devexperts/remote-data-ts'
 import { ArrowPathIcon } from '@heroicons/react/20/solid'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
+import { ARBChain } from '@xchainjs/xchain-arbitrum'
 import { AVAXChain } from '@xchainjs/xchain-avax'
 import { BSCChain } from '@xchainjs/xchain-bsc'
 import { Network } from '@xchainjs/xchain-client'
@@ -37,9 +38,12 @@ import { WalletType } from '../../../../shared/wallet/types'
 import { ZERO_ASSET_AMOUNT, ZERO_BASE_AMOUNT } from '../../../const'
 import {
   convertBaseAmountDecimal,
+  getArbTokenAddress,
   getAvaxTokenAddress,
   getBscTokenAddress,
   getEthTokenAddress,
+  isAethAsset,
+  isArbTokenAsset,
   isAvaxAsset,
   isAvaxTokenAsset,
   isBscAsset,
@@ -55,6 +59,7 @@ import {
   to1e8BaseAmount
 } from '../../../helpers/assetHelper'
 import { getChainAsset, isAvaxChain, isBscChain, isEthChain } from '../../../helpers/chainHelper'
+import { isEvmChain, isEvmToken } from '../../../helpers/evmHelper'
 import { unionAssets } from '../../../helpers/fp/array'
 import { eqBaseAmount, eqOAsset, eqOApproveParams, eqAsset } from '../../../helpers/fp/eq'
 import { sequenceSOption, sequenceTOption } from '../../../helpers/fpHelpers'
@@ -349,31 +354,37 @@ export const SymDeposit: React.FC<Props> = (props) => {
     () => baseAmount(0, assetBalanceMax1e8.decimal),
     [assetBalanceMax1e8.decimal]
   )
+  const isPoolDetails = (poolDetails: PoolDetails | PoolDetailsMaya): poolDetails is PoolDetails => {
+    return (poolDetails as PoolDetails) !== undefined
+  }
 
   const priceRuneAmountToDepositMax1e8: AssetWithAmount = useMemo(() => {
     const result =
       dex === 'THOR'
         ? FP.pipe(
-            PoolHelpers.getPoolPriceValue({
-              balance: { asset: AssetRuneNative, amount: runeAmountToDeposit },
-              poolDetails,
-              pricePool
-            }),
+            isPoolDetails(poolDetails)
+              ? PoolHelpers.getPoolPriceValue({
+                  balance: { asset: AssetRuneNative, amount: runeAmountToDeposit },
+                  poolDetails,
+                  pricePool
+                })
+              : O.none,
             O.getOrElse(() => ZERO_BASE_AMOUNT),
             (amount) => ({ asset: pricePool.asset, amount })
           )
         : FP.pipe(
-            getPoolPriceValueM({
-              balance: { asset: AssetCacao, amount: runeAmountToDeposit },
-              poolDetails,
-              pricePool
-            }),
+            !isPoolDetails(poolDetails)
+              ? getPoolPriceValueM({
+                  balance: { asset: AssetCacao, amount: runeAmountToDeposit },
+                  poolDetails,
+                  pricePool
+                })
+              : O.none,
             O.getOrElse(() => ZERO_BASE_AMOUNT),
             (amount) => ({ asset: pricePool.asset, amount })
           )
     return result
   }, [dex, poolDetails, pricePool, runeAmountToDeposit])
-
   const [
     /* max. 1e8 decimal */
     assetAmountToDepositMax1e8,
@@ -446,6 +457,8 @@ export const SymDeposit: React.FC<Props> = (props) => {
         return isAvaxAsset(asset) ? O.some(false) : O.some(isAvaxTokenAsset(asset))
       case BSCChain:
         return isBscAsset(asset) ? O.some(false) : O.some(isBscTokenAsset(asset))
+      case ARBChain:
+        return isAethAsset(asset) ? O.some(false) : O.some(isArbTokenAsset(asset))
       default:
         return O.none
     }
@@ -456,7 +469,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
       oPoolAddress,
       O.chain(({ router }) => router)
     )
-    //tobeFixed
+
     const oTokenAddress: O.Option<string> = (() => {
       switch (chain) {
         case ETHChain:
@@ -465,6 +478,8 @@ export const SymDeposit: React.FC<Props> = (props) => {
           return getAvaxTokenAddress(asset)
         case BSCChain:
           return getBscTokenAddress(asset)
+        case ARBChain:
+          return getArbTokenAddress(asset)
         default:
           return O.none
       }
@@ -574,11 +589,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
     return dex === 'THOR'
       ? FP.pipe(
-          PoolHelpers.getPoolPriceValue({
-            balance: { asset: AssetRuneNative, amount },
-            poolDetails,
-            pricePool
-          }),
+          isPoolDetails(poolDetails)
+            ? PoolHelpers.getPoolPriceValue({
+                balance: { asset: AssetRuneNative, amount },
+                poolDetails,
+                pricePool
+              })
+            : O.none,
           O.map((amount) => ({ amount, asset: pricePool.asset }))
         )
       : FP.pipe(
@@ -635,11 +652,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
     return dex === 'THOR'
       ? FP.pipe(
-          PoolHelpers.getPoolPriceValue({
-            balance: { asset: AssetRuneNative, amount },
-            poolDetails,
-            pricePool
-          }),
+          isPoolDetails(poolDetails)
+            ? PoolHelpers.getPoolPriceValue({
+                balance: { asset: AssetRuneNative, amount },
+                poolDetails,
+                pricePool
+              })
+            : O.none,
           O.map((amount) => ({ asset: pricePool.asset, amount }))
         )
       : FP.pipe(
@@ -697,11 +716,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
     return dex === 'THOR'
       ? FP.pipe(
-          PoolHelpers.getPoolPriceValue({
-            balance: { asset, amount },
-            poolDetails,
-            pricePool
-          }),
+          isPoolDetails(poolDetails)
+            ? PoolHelpers.getPoolPriceValue({
+                balance: { asset, amount },
+                poolDetails,
+                pricePool
+              })
+            : O.none,
           O.map((amount) => ({ amount, asset: pricePool.asset }))
         )
       : FP.pipe(
@@ -759,11 +780,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
     return dex === 'THOR'
       ? FP.pipe(
-          PoolHelpers.getPoolPriceValue({
-            balance: { asset, amount },
-            poolDetails,
-            pricePool
-          }),
+          isPoolDetails(poolDetails)
+            ? PoolHelpers.getPoolPriceValue({
+                balance: { asset, amount },
+                poolDetails,
+                pricePool
+              })
+            : O.none,
           O.map((amount) => ({ asset: pricePool.asset, amount }))
         )
       : FP.pipe(
@@ -1018,7 +1041,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
     (): BaseAmount =>
       Helper.maxRuneAmountToDeposit({
         poolData,
-        runeBalance: dexAssetBalance,
+        dexBalance: dexAssetBalance,
         assetBalance: { asset, amount: assetBalance },
         fees: depositFees,
         dex
@@ -1041,7 +1064,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
   const maxAssetAmountToDepositMax1e8 = useMemo((): BaseAmount => {
     const maxAmount = Helper.maxAssetAmountToDeposit({
       poolData,
-      runeBalance: dexAssetBalance,
+      dexBalance: dexAssetBalance,
       assetBalance: { asset, amount: assetBalance },
       fees: depositFees
     })
@@ -1052,11 +1075,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
     const result =
       dex === 'THOR'
         ? FP.pipe(
-            PoolHelpers.getPoolPriceValue({
-              balance: { asset: asset, amount: maxAssetAmountToDepositMax1e8 },
-              poolDetails,
-              pricePool
-            }),
+            isPoolDetails(poolDetails)
+              ? PoolHelpers.getPoolPriceValue({
+                  balance: { asset: asset, amount: maxAssetAmountToDepositMax1e8 },
+                  poolDetails,
+                  pricePool
+                })
+              : O.none,
             O.getOrElse(() => baseAmount(0, maxAssetAmountToDepositMax1e8.decimal)),
             (amount) => ({ asset: pricePool.asset, amount })
           )
@@ -1076,11 +1101,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
     const result =
       dex === 'THOR'
         ? FP.pipe(
-            PoolHelpers.getPoolPriceValue({
-              balance: { asset: AssetRuneNative, amount: maxRuneAmountToDeposit },
-              poolDetails,
-              pricePool
-            }),
+            isPoolDetails(poolDetails)
+              ? PoolHelpers.getPoolPriceValue({
+                  balance: { asset: AssetRuneNative, amount: maxRuneAmountToDeposit },
+                  poolDetails,
+                  pricePool
+                })
+              : O.none,
             O.getOrElse(() => baseAmount(0, maxRuneAmountToDeposit.decimal)),
             (amount) => ({ asset: pricePool.asset, amount })
           )
@@ -1123,16 +1150,18 @@ export const SymDeposit: React.FC<Props> = (props) => {
     const result =
       dex === 'THOR'
         ? FP.pipe(
-            PoolHelpers.getPoolPriceValue({
-              balance: { asset, amount: assetAmountToDepositMax1e8 },
-              poolDetails,
-              pricePool
-            }),
+            isPoolDetails(poolDetails)
+              ? PoolHelpers.getPoolPriceValue({
+                  balance: { asset, amount: assetAmountToDepositMax1e8 },
+                  poolDetails,
+                  pricePool
+                })
+              : O.none,
             O.getOrElse(() => baseAmount(0, assetAmountToDepositMax1e8.decimal)),
             (amount) => ({ asset: pricePool.asset, amount })
           )
         : FP.pipe(
-            PoolHelpers.getPoolPriceValue({
+            getPoolPriceValueM({
               balance: { asset, amount: assetAmountToDepositMax1e8 },
               poolDetails,
               pricePool
@@ -2047,7 +2076,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
     const description1 =
       // extra info for ERC20 assets only
-      isEthChain(chain) && !isEthAsset(asset)
+      isEvmChain(chain) && isEvmToken(asset)
         ? `${txtNeedsConnected} ${intl.formatMessage(
             {
               id: 'ledger.blindsign'

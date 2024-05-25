@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo } from 'react'
 import * as RD from '@devexperts/remote-data-ts'
 import { BTCChain } from '@xchainjs/xchain-bitcoin'
 import { Network } from '@xchainjs/xchain-client'
-import { MayaChain } from '@xchainjs/xchain-mayachain-query'
+import { MAYAChain } from '@xchainjs/xchain-mayachain'
 import { THORChain } from '@xchainjs/xchain-thorchain'
 import { Address, Asset, assetToString, bn, Chain, baseAmount } from '@xchainjs/xchain-util'
 import * as FP from 'fp-ts/function'
@@ -40,13 +40,13 @@ import { assetInList, getAssetFromNullableString } from '../../helpers/assetHelp
 import { eqChain, eqNetwork } from '../../helpers/fp/eq'
 import { sequenceTOption, sequenceTRD } from '../../helpers/fpHelpers'
 import * as PoolHelpers from '../../helpers/poolHelper'
-import { RUNE_PRICE_POOL } from '../../helpers/poolHelper'
-import { MAYA_PRICE_POOL } from '../../helpers/poolHelperMaya'
 import { addressFromOptionalWalletAddress, getWalletAddressFromNullableString } from '../../helpers/walletHelper'
 import { useDex } from '../../hooks/useDex'
 import { useMimirHalt } from '../../hooks/useMimirHalt'
 import { useNetwork } from '../../hooks/useNetwork'
 import { useOpenExplorerTxUrl } from '../../hooks/useOpenExplorerTxUrl'
+import { usePricePool } from '../../hooks/usePricePool'
+import { usePricePoolMaya } from '../../hooks/usePricePoolMaya'
 import { usePrivateData } from '../../hooks/usePrivateData'
 import { useValidateAddress } from '../../hooks/useValidateAddress'
 import { swap } from '../../routes/pools'
@@ -106,7 +106,6 @@ const SuccessRouteView: React.FC<Props> = ({
       reloadPools: reloadThorPools,
       reloadSelectedPoolDetail,
       selectedPoolAddress$,
-      selectedPricePool$,
       haltedChains$,
       pendingPoolsState$
     },
@@ -118,17 +117,17 @@ const SuccessRouteView: React.FC<Props> = ({
       reloadPools: reloadMayaPools,
       reloadSelectedPoolDetail: reloadSelectedPoolDetailMaya,
       selectedPoolAddress$: selectedPoolAddressMaya$,
-      selectedPricePool$: selectedPricePoolMaya$,
       haltedChains$: haltedChainsMaya$,
       pendingPoolsState$: pendingPoolsStateMaya$
     },
     setSelectedPoolAsset: setSelectedPoolAssetMaya
   } = midgardMayaService
 
-  const pricePool = useObservableState(
-    dex === 'THOR' ? selectedPricePool$ : selectedPricePoolMaya$,
-    dex === 'THOR' ? RUNE_PRICE_POOL : MAYA_PRICE_POOL
-  )
+  const pricePoolThor = usePricePool()
+  const pricePoolMaya = usePricePoolMaya()
+
+  const pricePool = dex === 'THOR' ? pricePoolThor : pricePoolMaya
+
   const { reloadSwapFees, swapFees$, addressByChain$, swap$, assetWithDecimal$ } = useChainContext()
 
   const {
@@ -228,7 +227,7 @@ const SuccessRouteView: React.FC<Props> = ({
   }, [targetChain, updateTargetKeystoreAddress$])
 
   const { openExplorerTxUrl, getExplorerTxUrl } = useOpenExplorerTxUrl(
-    dex === 'THOR' ? O.some(THORChain) : O.some(MayaChain)
+    dex === 'THOR' ? O.some(THORChain) : O.some(MAYAChain)
   )
 
   const renderError = useCallback(

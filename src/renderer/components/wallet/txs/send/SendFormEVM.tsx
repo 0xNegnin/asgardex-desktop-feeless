@@ -5,7 +5,6 @@ import { Cog8ToothIcon } from '@heroicons/react/20/solid'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
 import { FeeOption, Fees, Network } from '@xchainjs/xchain-client'
 import { validateAddress } from '@xchainjs/xchain-evm'
-import { PoolDetails } from '@xchainjs/xchain-midgard'
 import {
   bn,
   baseToAsset,
@@ -27,17 +26,20 @@ import * as O from 'fp-ts/lib/Option'
 import { useIntl } from 'react-intl'
 
 import { Dex } from '../../../../../shared/api/types'
-import { chainToString } from '../../../../../shared/utils/chain'
+import { chainToString, isChainOfMaya } from '../../../../../shared/utils/chain'
 import { isKeystoreWallet, isLedgerWallet } from '../../../../../shared/utils/guard'
 import { WalletType } from '../../../../../shared/wallet/types'
 import { ZERO_BASE_AMOUNT, ZERO_BN } from '../../../../const'
 import { isAethAsset, isAvaxAsset, isBscAsset, isEthAsset, isUSDAsset } from '../../../../helpers/assetHelper'
 import { getChainAsset } from '../../../../helpers/chainHelper'
+import { isEvmChain, isEvmToken } from '../../../../helpers/evmHelper'
 import { sequenceTOption } from '../../../../helpers/fpHelpers'
 import { getPoolPriceValue } from '../../../../helpers/poolHelper'
+import { getPoolPriceValue as getPoolPriceValueM } from '../../../../helpers/poolHelperMaya'
 import { loadingString } from '../../../../helpers/stringHelper'
 import { getEVMAmountFromBalances } from '../../../../helpers/walletHelper'
 import { usePricePool } from '../../../../hooks/usePricePool'
+import { usePricePoolMaya } from '../../../../hooks/usePricePoolMaya'
 import { useSubscriptionState } from '../../../../hooks/useSubscriptionState'
 import { INITIAL_SAVER_DEPOSIT_STATE, INITIAL_SEND_STATE } from '../../../../services/chain/const'
 import {
@@ -48,7 +50,8 @@ import {
 } from '../../../../services/chain/types'
 import { FeesRD, GetExplorerTxUrl, OpenExplorerTxUrl, WalletBalances } from '../../../../services/clients'
 import { TxParams } from '../../../../services/evm/types'
-import { PoolAddress } from '../../../../services/midgard/types'
+import { PoolDetails as PoolDetailsMaya, PoolAddress as PoolAddressMaya } from '../../../../services/mayaMigard/types'
+import { PoolAddress, PoolDetails } from '../../../../services/midgard/types'
 import { SelectedWalletAsset, ValidatePasswordHandler } from '../../../../services/wallet/types'
 import { WalletBalance } from '../../../../services/wallet/types'
 import { LedgerConfirmationModal, WalletPasswordConfirmationModal } from '../../../modal/confirmation'
@@ -86,8 +89,9 @@ export type Props = {
   reloadFeesHandler: (params: TxParams) => void
   validatePassword$: ValidatePasswordHandler
   network: Network
-  poolDetails: PoolDetails
+  poolDetails: PoolDetails | PoolDetailsMaya
   oPoolAddress: O.Option<PoolAddress>
+  oPoolAddressMaya: O.Option<PoolAddressMaya>
   dex: Dex
 }
 
@@ -106,6 +110,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     validatePassword$,
     network,
     oPoolAddress,
+    oPoolAddressMaya,
     dex
   } = props
 
@@ -114,7 +119,9 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const { asset } = balance
   const sourceChainAsset = getChainAsset(asset.chain)
 
-  const pricePool = usePricePool()
+  const pricePoolThor = usePricePool()
+  const pricePoolMaya = usePricePoolMaya()
+  const pricePool = !isChainOfMaya(asset.chain) ? pricePoolThor : pricePoolMaya
 
   const [selectedFeeOption, setSelectedFeeOption] = useState<FeeOption>(DEFAULT_FEE_OPTION)
 
@@ -149,13 +156,10 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const [amountPriceValue, setAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
   const feesAvailable = useMemo(() => O.isSome(oFees), [oFees])
 
-  const [InboundAddress, setInboundAddress] = useState<string>('')
-  const [routerAddress, setRouterAddress] = useState<O.Option<string>>(O.none)
-
   const [swapMemoDetected, setSwapMemoDetected] = useState<boolean>(false)
   const [notAllowed, setNotAllowed] = useState<boolean>(false)
 
-  const [currentMemo, setCurrentMemo] = useState('')
+  const [currentMemo, setCurrentMemo] = useState<string>('')
   const [affiliateTracking, setAffiliateTracking] = useState<string>('')
   const isChainAsset = isEthAsset(asset) || isAvaxAsset(asset) || isBscAsset(asset) || isAethAsset(asset)
 
@@ -183,22 +187,39 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     setCurrentMemo(memoValue)
   }, [form, intl, isChainAsset])
 
-  // useEffect to fetch data from query
-  useEffect(() => {
-    FP.pipe(
-      oPoolAddress,
-      O.fold(
-        () => {
-          setInboundAddress('')
-          setRouterAddress(O.none)
-        },
-        (poolDetails) => {
-          setInboundAddress(poolDetails.address)
-          setRouterAddress(poolDetails.router)
-        }
+  const { inboundAddress, routers } = useMemo(() => {
+    const inboundAddress = {
+      THOR: FP.pipe(
+        oPoolAddress,
+        O.map((details) => details.address),
+        O.getOrElse(() => '')
+      ),
+      MAYA: FP.pipe(
+        oPoolAddressMaya,
+        O.map((details) => details.address),
+        O.getOrElse(() => '')
       )
-    )
-  }, [oPoolAddress, asset.chain])
+    }
+
+    const routers = {
+      THOR: FP.pipe(
+        oPoolAddress,
+        O.fold(
+          () => O.none,
+          (details) => details.router
+        )
+      ),
+      MAYA: FP.pipe(
+        oPoolAddressMaya,
+        O.fold(
+          () => O.none,
+          (details) => details.router
+        )
+      )
+    }
+
+    return { inboundAddress, routers }
+  }, [oPoolAddress, oPoolAddressMaya])
 
   useEffect(() => {
     FP.pipe(
@@ -221,12 +242,12 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
 
   const oAssetAmount: O.Option<BaseAmount> = useMemo(() => {
     // return balance of current asset
-    if (isEthAsset(asset) || isAvaxAsset(asset) || isBscAsset(asset) || isAethAsset(asset)) {
+    if (isChainAsset) {
       return O.some(balance.amount)
     }
     // or check list of other assets to get eth balance
     return FP.pipe(getEVMAmountFromBalances(balances, getChainAsset(asset.chain)), O.map(assetToBase))
-  }, [asset, balance.amount, balances])
+  }, [asset.chain, balance.amount, balances, isChainAsset])
 
   const isFeeError = useMemo(() => {
     return FP.pipe(
@@ -276,29 +297,28 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
 
   const addressValidator = useCallback(
     async (_: unknown, value: string) => {
-      setWarningMessage('')
       if (!value) {
+        setWarningMessage('')
         return Promise.reject(intl.formatMessage({ id: 'wallet.errors.address.empty' }))
       }
       if (!validateAddress(value.toLowerCase())) {
         return Promise.reject(intl.formatMessage({ id: 'wallet.errors.address.invalid' }))
       }
-      if (InboundAddress === value) {
-        const dexInbound = dex === 'THOR' ? 'Thorchain' : 'Mayachain'
+      if (inboundAddress['THOR'] === value || inboundAddress['MAYA'] === value) {
+        const dexInbound = inboundAddress['THOR'] === value ? 'Thorchain' : 'Mayachain'
         const type = `${dexInbound} ${asset.chain} Inbound`
         setWarningMessage(intl.formatMessage({ id: 'wallet.errors.address.inbound' }, { type: type }))
+      } else {
+        setWarningMessage('')
       }
-      const currentRouterAddress = FP.pipe(
-        routerAddress,
-        O.getOrElse(() => '')
-      )
-      if (currentRouterAddress === value) {
-        const dexInbound = dex === 'THOR' ? 'Thorchain' : 'Mayachain'
-        const type = `${dexInbound} ${asset.chain} Inbound`
+
+      if (checkAddress(routers.THOR, value) || checkAddress(routers.MAYA, value)) {
+        const dexInbound = checkAddress(routers.THOR, value) ? 'Thorchain' : 'Mayachain'
+        const type = `${dexInbound} ${asset.chain} router`
         return Promise.reject(intl.formatMessage({ id: 'wallet.errors.address.inbound' }, { type }))
       }
     },
-    [InboundAddress, routerAddress, intl, dex, asset.chain]
+    [inboundAddress, routers, intl, asset.chain]
   )
 
   // max amount for eth
@@ -320,24 +340,50 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   // store maxAmountValue
   const [maxAmmountPriceValue, setMaxAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
 
+  const isPoolDetails = (poolDetails: PoolDetails | PoolDetailsMaya): poolDetails is PoolDetails => {
+    return (poolDetails as PoolDetails) !== undefined
+  }
+
   // useEffect to fetch data from query
   useEffect(() => {
     const amountValue = O.getOrElse(() => ZERO_BASE_AMOUNT)(amountToSend)
-    const maxAmountPrice = getPoolPriceValue({
-      balance: { asset, amount: maxAmount },
-      poolDetails,
-      pricePool
-    })
-    const amountPrice = getPoolPriceValue({
-      balance: { asset, amount: amountValue },
-      poolDetails,
-      pricePool
-    })
-    const assetFeePrice = getPoolPriceValue({
-      balance: { asset: sourceChainAsset, amount: assetFee.baseAmount },
-      poolDetails,
-      pricePool
-    })
+
+    const maxAmountPrice =
+      isPoolDetails(poolDetails) && dex === 'THOR'
+        ? getPoolPriceValue({
+            balance: { asset, amount: maxAmount },
+            poolDetails,
+            pricePool
+          })
+        : getPoolPriceValueM({
+            balance: { asset, amount: maxAmount },
+            poolDetails,
+            pricePool: pricePoolMaya
+          })
+    const amountPrice =
+      isPoolDetails(poolDetails) && dex === 'THOR'
+        ? getPoolPriceValue({
+            balance: { asset, amount: amountValue },
+            poolDetails,
+            pricePool
+          })
+        : getPoolPriceValueM({
+            balance: { asset, amount: amountValue },
+            poolDetails,
+            pricePool: pricePoolMaya
+          })
+    const assetFeePrice =
+      isPoolDetails(poolDetails) && dex === 'THOR'
+        ? getPoolPriceValue({
+            balance: { asset: sourceChainAsset, amount: assetFee.baseAmount },
+            poolDetails,
+            pricePool
+          })
+        : getPoolPriceValueM({
+            balance: { asset: sourceChainAsset, amount: assetFee.baseAmount },
+            poolDetails,
+            pricePool: pricePoolMaya
+          })
     if (O.isSome(assetFeePrice)) {
       const maxCryptoAmount = new CryptoAmount(assetFeePrice.value, pricePool.asset)
       setFeePriceValue(maxCryptoAmount)
@@ -350,7 +396,19 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       const maxCryptoAmount = new CryptoAmount(maxAmountPrice.value, pricePool.asset)
       setMaxAmountPriceValue(maxCryptoAmount)
     }
-  }, [asset, maxAmount, assetFee, amountToSend, pricePool.asset, pricePool, network, poolDetails, sourceChainAsset])
+  }, [
+    asset,
+    maxAmount,
+    assetFee,
+    amountToSend,
+    pricePool.asset,
+    pricePool,
+    network,
+    poolDetails,
+    sourceChainAsset,
+    dex,
+    pricePoolMaya
+  ])
 
   const priceFeeLabel = useMemo(() => {
     if (!feePriceValue) {
@@ -450,13 +508,13 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       const errors = {
         msg1: intl.formatMessage({ id: 'wallet.errors.amount.shouldBeNumber' }),
         msg2: intl.formatMessage({ id: 'wallet.errors.amount.shouldBeGreaterThan' }, { amount: '0' }),
-        msg3: isEthAsset(asset)
+        msg3: isChainAsset
           ? intl.formatMessage({ id: 'wallet.errors.amount.shouldBeLessThanBalanceAndFee' })
           : intl.formatMessage({ id: 'wallet.errors.amount.shouldBeLessThanBalance' })
       }
       return validateTxAmountInput({ input: value, maxAmount: baseToAsset(maxAmount), errors })
     },
-    [asset, intl, maxAmount]
+    [intl, isChainAsset, maxAmount]
   )
 
   const renderSlider = useMemo(() => {
@@ -499,20 +557,28 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     },
     [amountValidator, balance.amount.decimal]
   )
+  const checkAddress = (routerOption: O.Option<string>, address: string): boolean =>
+    O.fold(
+      () => false, // If None, return false
+      (routerAddress: string) => {
+        return routerAddress === address
+      } // If Some, compare the address
+    )(routerOption)
 
   const onChangeAddress = useCallback(
     async ({ target }: React.ChangeEvent<HTMLInputElement>) => {
       const address = target.value
-
       // we have to validate input before storing into the state
+      const isNotAllowed = checkAddress(routers.MAYA, address) || (checkAddress(routers.THOR, address) && !isChainAsset)
+      setNotAllowed(isNotAllowed)
       addressValidator(undefined, address)
         .then(() => {
           setSendAddress(O.some(address))
-          setNotAllowed(address === InboundAddress && !isChainAsset) // remove for deposit
+          setNotAllowed(isNotAllowed)
         })
         .catch(() => setSendAddress(O.none))
     },
-    [InboundAddress, addressValidator, isChainAsset]
+    [addressValidator, isChainAsset, routers.MAYA, routers.THOR]
   )
 
   const reloadFees = useCallback(() => {
@@ -650,7 +716,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
 
       // extended description for ERC20 tokens only
       const description1 =
-        !isEthAsset(asset) || !isAethAsset(asset) || !isAvaxAsset(asset) || !isBscAsset(asset)
+        isEvmChain(asset.chain) && isEvmToken(asset)
           ? `${txtNeedsConnected} ${intl.formatMessage(
               {
                 id: 'ledger.blindsign'

@@ -9,7 +9,6 @@ import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 import { useIntl, FormattedTime } from 'react-intl'
 
-import { isBnbChain } from '../../../../helpers/chainHelper'
 import { TxsPageRD } from '../../../../services/clients'
 import { MAX_ITEMS_PER_PAGE } from '../../../../services/const'
 import { RESERVE_MODULE_ADDRESS } from '../../../../services/thorchain/const'
@@ -212,6 +211,22 @@ export const TxsTable: React.FC<Props> = (props): JSX.Element => {
     [typeColumn, amountColumn, dateColumn, linkColumn]
   )
 
+  const removeDuplicateTxs = (txsPage: TxsPage): TxsPage => {
+    const seen = new Map<string, boolean>()
+    const filteredTxs = txsPage.txs.filter((tx) => {
+      if (!seen.has(tx.hash)) {
+        seen.set(tx.hash, true)
+        return true
+      }
+      return false
+    })
+    return {
+      ...txsPage,
+      txs: filteredTxs,
+      total: filteredTxs.length // Update the total count if necessary
+    }
+  }
+
   const renderTable = useCallback(
     ({ total, txs }: TxsPage, loading = false) => {
       const columns = isDesktopView ? desktopColumns : mobileColumns
@@ -251,27 +266,17 @@ export const TxsTable: React.FC<Props> = (props): JSX.Element => {
             const extra = (
               <ReloadButton size="normal" onClick={reloadHandler} label={intl.formatMessage({ id: 'common.retry' })} />
             )
-
-            // Binance returns 429 in case of API rate limits
-            if (isBnbChain(chain) && e.statusCode === 429) {
-              return (
-                <ErrorView
-                  title={e.msg}
-                  subTitle={intl.formatMessage({ id: 'common.error.api.limit' })}
-                  extra={extra}
-                />
-              )
-            }
             return <ErrorView title={e.msg} extra={extra} />
           },
           (data: TxsPage): JSX.Element => {
             previousTxs.current = O.some(data)
-            return renderTable(data)
+            const uniqueData = removeDuplicateTxs(data)
+            return renderTable(uniqueData)
           }
         )(txsPageRD)}
       </>
     ),
-    [txsPageRD, renderTable, emptyTableData, reloadHandler, intl, chain]
+    [txsPageRD, renderTable, emptyTableData, reloadHandler, intl]
   )
 
   return renderContent

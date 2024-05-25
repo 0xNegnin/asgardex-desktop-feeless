@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl'
 import { useParams } from 'react-router-dom'
 
 import { PoolDetails, Props as PoolDetailProps } from '../../components/pool/PoolDetails'
+import { PoolDetails as PoolDetailsMaya, Props as PoolDetailPropsMaya } from '../../components/pool/PoolDetailsMaya'
 import { ErrorView } from '../../components/shared/error'
 import { RefreshButton } from '../../components/uielements/button'
 import { DEFAULT_GET_POOLS_PERIOD, ONE_BN } from '../../const'
@@ -19,11 +20,17 @@ import { getAssetFromNullableString } from '../../helpers/assetHelper'
 import { eqAsset } from '../../helpers/fp/eq'
 import { useDex } from '../../hooks/useDex'
 import { useMidgardHistoryActions } from '../../hooks/useMidgardHistoryActions'
+import { useMidgardMayaHistoryActions } from '../../hooks/useMidgardMayaHistoryActions'
 import { usePoolWatchlist } from '../../hooks/usePoolWatchlist'
 import { PoolDetailRouteParams } from '../../routes/pools/detail'
 import { DEFAULT_NETWORK } from '../../services/const'
+import {
+  PoolDetailRD as PoolDetailMayaRD,
+  PoolStatsDetailRD as PoolStatsDetailMayaRD
+} from '../../services/mayaMigard/types'
 import { PoolDetailRD, PoolStatsDetailRD } from '../../services/midgard/types'
 import { PoolChartView } from './PoolChartView'
+import { PoolChartViewMaya } from './PoolChartViewMaya'
 import * as Styled from './PoolDetailsView.styles'
 import { PoolHistoryView } from './PoolHistoryView'
 
@@ -38,11 +45,31 @@ type TargetPoolDetailProps = Omit<
   | 'unwatch'
   | 'setPoolsPeriod'
 >
-
+type TargetPoolDetailPropsMaya = Omit<
+  PoolDetailPropsMaya,
+  | 'asset'
+  | 'historyActions'
+  | 'reloadPoolDetail'
+  | 'reloadPoolStatsDetail'
+  | 'watched'
+  | 'watch'
+  | 'unwatch'
+  | 'setPoolsPeriod'
+>
 const defaultDetailsProps: TargetPoolDetailProps = {
   priceRatio: ONE_BN,
   HistoryView: PoolHistoryView,
   ChartView: PoolChartView,
+  poolDetail: RD.initial,
+  poolStatsDetail: RD.initial,
+  priceSymbol: '',
+  network: DEFAULT_NETWORK,
+  poolsPeriod: DEFAULT_GET_POOLS_PERIOD
+}
+const defaultDetailsPropsMaya: TargetPoolDetailPropsMaya = {
+  priceRatio: ONE_BN,
+  HistoryView: PoolHistoryView,
+  ChartView: PoolChartViewMaya,
   poolDetail: RD.initial,
   poolStatsDetail: RD.initial,
   priceSymbol: '',
@@ -92,11 +119,9 @@ export const PoolDetailsView: React.FC = () => {
 
   const intl = useIntl()
 
-  const setPoolsPeriod = dex === 'THOR' ? setPoolsPeriodThor : setPoolsPeriodMaya
-
   const { asset } = useParams<PoolDetailRouteParams>()
 
-  const { add: addToWatchList, remove: removeFromWatchList, list: watchedList } = usePoolWatchlist()
+  const { add: addToWatchList, remove: removeFromWatchList, list: watchedList } = usePoolWatchlist() //tbf
 
   const poolsPeriod = useObservableState(dex === 'THOR' ? poolsPeriod$ : poolsPeriodMaya$, DEFAULT_GET_POOLS_PERIOD)
 
@@ -132,28 +157,27 @@ export const PoolDetailsView: React.FC = () => {
   const priceRatio = useObservableState(dex === 'THOR' ? priceRatio$ : priceRatioMaya$, ONE_BN)
 
   const historyActions = useMidgardHistoryActions()
+  const historyActionsMaya = useMidgardMayaHistoryActions()
 
   const { historyPage: historyPageRD, reloadHistory } = historyActions
+  const { historyPage: historyPageMayaRD, reloadHistory: reloadHistoryMaya } = historyActionsMaya
 
-  const poolDetailRD: PoolDetailRD = useObservableState(
-    dex === 'THOR' ? selectedPoolDetailThor$ : selectedPoolDetailMaya$,
-    RD.initial
-  )
+  const poolDetailThorRD: PoolDetailRD = useObservableState(selectedPoolDetailThor$, RD.initial)
+  const poolDetailMayaRD: PoolDetailMayaRD = useObservableState(selectedPoolDetailMaya$, RD.initial)
 
-  const poolStatsDetailRD: PoolStatsDetailRD = useObservableState(
-    dex === 'THOR' ? poolStatsDetail$ : poolStatsDetailMaya$,
-    RD.initial
-  )
+  const poolStatsDetailThorRD: PoolStatsDetailRD = useObservableState(poolStatsDetail$, RD.initial)
+  const poolStatsDetailMayaRD: PoolStatsDetailMayaRD = useObservableState(poolStatsDetailMaya$, RD.initial)
 
   const onRefreshData = useCallback(() => {
-    reloadHistory()
     // trigger reload of chart data, which will be handled in PoolChartView
 
     if (dex === 'THOR') {
+      reloadHistory()
       reloadSelectedPoolDetail()
       reloadPoolStatsDetail()
       reloadChartDataUIThor()
     } else {
+      reloadHistoryMaya()
       reloadPoolStatsDetailMaya()
       reloadSelectedPoolDetailMaya()
       reloadChartDataUIMaya()
@@ -163,6 +187,7 @@ export const PoolDetailsView: React.FC = () => {
     reloadChartDataUIMaya,
     reloadChartDataUIThor,
     reloadHistory,
+    reloadHistoryMaya,
     reloadPoolStatsDetail,
     reloadPoolStatsDetailMaya,
     reloadSelectedPoolDetail,
@@ -170,10 +195,14 @@ export const PoolDetailsView: React.FC = () => {
   ])
 
   const refreshButtonDisabled = useMemo(() => {
-    return FP.pipe(historyPageRD, RD.isPending) || FP.pipe(poolDetailRD, RD.isPending)
-  }, [historyPageRD, poolDetailRD])
+    return (
+      FP.pipe(historyPageRD || historyPageMayaRD, RD.isPending) ||
+      FP.pipe(dex === 'THOR' ? poolDetailThorRD : poolDetailMayaRD, RD.isPending)
+    )
+  }, [dex, historyPageMayaRD, historyPageRD, poolDetailMayaRD, poolDetailThorRD])
 
   const prevProps = useRef<TargetPoolDetailProps>(defaultDetailsProps)
+  const prevPropsMaya = useRef<TargetPoolDetailPropsMaya>(defaultDetailsPropsMaya)
 
   return (
     <>
@@ -189,17 +218,26 @@ export const PoolDetailsView: React.FC = () => {
             prevProps.current = {
               network,
               priceRatio,
-              poolDetail: poolDetailRD,
-              poolStatsDetail: poolStatsDetailRD,
+              poolDetail: poolDetailThorRD,
+              poolStatsDetail: poolStatsDetailThorRD,
               priceSymbol,
               HistoryView: PoolHistoryView,
               ChartView: PoolChartView,
               poolsPeriod
             }
-
+            prevPropsMaya.current = {
+              network,
+              priceRatio,
+              poolDetail: poolDetailMayaRD,
+              poolStatsDetail: poolStatsDetailMayaRD,
+              priceSymbol,
+              HistoryView: PoolHistoryView,
+              ChartView: PoolChartViewMaya,
+              poolsPeriod
+            }
             const watched = FP.pipe(watchedList, A.elem(eqAsset)(asset))
 
-            return (
+            return dex === 'THOR' ? (
               <PoolDetails
                 asset={asset}
                 watched={watched}
@@ -208,8 +246,20 @@ export const PoolDetailsView: React.FC = () => {
                 historyActions={historyActions}
                 reloadPoolDetail={reloadSelectedPoolDetail}
                 reloadPoolStatsDetail={reloadPoolStatsDetail}
-                setPoolsPeriod={setPoolsPeriod}
+                setPoolsPeriod={setPoolsPeriodThor}
                 {...prevProps.current}
+              />
+            ) : (
+              <PoolDetailsMaya
+                asset={asset}
+                watched={watched}
+                watch={() => addToWatchList(asset)}
+                unwatch={() => removeFromWatchList(asset)}
+                historyActions={historyActionsMaya}
+                reloadPoolDetail={reloadSelectedPoolDetail}
+                reloadPoolStatsDetail={reloadPoolStatsDetail}
+                setPoolsPeriod={setPoolsPeriodMaya}
+                {...prevPropsMaya.current}
               />
             )
           }

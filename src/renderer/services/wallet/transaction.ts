@@ -1,7 +1,6 @@
 import * as RD from '@devexperts/remote-data-ts'
 import { ARBChain } from '@xchainjs/xchain-arbitrum'
 import { AVAXChain } from '@xchainjs/xchain-avax'
-import { BNBChain } from '@xchainjs/xchain-binance'
 import { BTCChain } from '@xchainjs/xchain-bitcoin'
 import { BCHChain } from '@xchainjs/xchain-bitcoincash'
 import { BSCChain } from '@xchainjs/xchain-bsc'
@@ -19,10 +18,10 @@ import * as Rx from 'rxjs'
 import * as RxOp from 'rxjs/operators'
 
 import { isEnabledChain } from '../../../shared/utils/chain'
+import { isThorChain } from '../../helpers/chainHelper'
 import { observableState } from '../../helpers/stateHelper'
 import * as ARB from '../arb'
 import * as AVAX from '../avax'
-import * as BNB from '../binance'
 import * as BTC from '../bitcoin'
 import * as BCH from '../bitcoincash'
 import * as BSC from '../bsc'
@@ -68,15 +67,14 @@ export const getTxs$: (walletAddress: O.Option<string>, walletIndex: number) => 
           () => Rx.of(RD.initial),
           ({ asset }) => {
             const { chain } = asset
-            if (!isEnabledChain(chain))
+            if (!isEnabledChain(chain) || asset.synth || isThorChain(chain))
               return Rx.of(RD.failure<ApiError>({ errorId: ErrorId.GET_ASSET_TXS, msg: `Unsupported chain ${chain}` }))
-            // If the asset is synthetic, use the THOR client
-            if (asset && asset.synth) {
-              return THOR.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
-            }
+            // If the asset is synthetic, use the THOR client tobefixed
+            // if (asset && asset.synth) {
+            //   console.log(limit)
+            //   return THOR.txs$({ asset: O.none, walletAddress, walletIndex, limit })
+            // }
             switch (chain) {
-              case BNBChain:
-                return BNB.txs$({ asset: O.some(asset), limit, offset, walletAddress, walletIndex })
               case BTCChain:
                 return BTC.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
               case DASHChain:
@@ -90,9 +88,9 @@ export const getTxs$: (walletAddress: O.Option<string>, walletIndex: number) => 
               case BSCChain:
                 return BSC.txs$({ asset: O.some(asset), limit, offset, walletAddress, walletIndex })
               case THORChain:
-                return THOR.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
+                return THOR.txs$({ asset: O.some(asset), walletAddress, walletIndex })
               case MAYAChain:
-                return MAYA.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
+                return MAYA.txs$({ asset: O.none, walletAddress, walletIndex })
               case LTCChain:
                 return LTC.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
               case BCHChain:
@@ -100,9 +98,9 @@ export const getTxs$: (walletAddress: O.Option<string>, walletIndex: number) => 
               case DOGEChain:
                 return DOGE.txs$({ asset: O.none, limit, offset, walletAddress, walletIndex })
               case KUJIChain:
-                return KUJI.txs$({ asset: O.some(asset), limit, offset, walletAddress, walletIndex })
+                return KUJI.txs$({ asset: O.none, walletAddress, walletIndex })
               case GAIAChain:
-                return COSMOS.txs$({ asset: O.some(asset), limit, offset, walletAddress, walletIndex })
+                return COSMOS.txs$({ asset: O.none, walletAddress, walletIndex })
             }
           }
         )

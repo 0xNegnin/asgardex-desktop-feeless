@@ -1,7 +1,6 @@
 import * as RD from '@devexperts/remote-data-ts'
 import { ARB_GAS_ASSET_DECIMAL, ARBChain } from '@xchainjs/xchain-arbitrum'
 import { AVAXChain } from '@xchainjs/xchain-avax'
-import { BNBChain } from '@xchainjs/xchain-binance'
 import { BTC_DECIMAL } from '@xchainjs/xchain-bitcoin'
 import { BTCChain } from '@xchainjs/xchain-bitcoin'
 import { BCHChain } from '@xchainjs/xchain-bitcoincash'
@@ -13,7 +12,7 @@ import { ETH_GAS_ASSET_DECIMAL } from '@xchainjs/xchain-ethereum'
 import { ETHChain } from '@xchainjs/xchain-ethereum'
 import { KUJIChain } from '@xchainjs/xchain-kujira'
 import { LTCChain } from '@xchainjs/xchain-litecoin'
-import { MAYAChain } from '@xchainjs/xchain-mayachain'
+import { CACAO_DECIMAL, MAYAChain } from '@xchainjs/xchain-mayachain'
 import { PoolDetail } from '@xchainjs/xchain-mayamidgard'
 import { AssetRuneNative, THORChain } from '@xchainjs/xchain-thorchain'
 import {
@@ -37,8 +36,7 @@ import * as P from 'fp-ts/lib/Predicate'
 import { AssetARB, AssetBTC, AssetETH, AssetKUJI } from '../../../shared/utils/asset'
 import { isEnabledChain } from '../../../shared/utils/chain'
 import { optionFromNullableString } from '../../../shared/utils/fp'
-import { convertBaseAmountDecimal, isUSDAsset, CACAO_DECIMAL, THORCHAIN_DECIMAL } from '../../helpers/assetHelper'
-import { isMiniToken } from '../../helpers/binanceHelper'
+import { convertBaseAmountDecimal, isUSDAsset, THORCHAIN_DECIMAL } from '../../helpers/assetHelper'
 import { eqAsset, eqChain, eqOAddress } from '../../helpers/fp/eq'
 import { ordPricePool } from '../../helpers/fp/ord'
 import { getDeepestPool, MAYA_POOL_ADDRESS, MAYA_PRICE_POOL } from '../../helpers/poolHelperMaya'
@@ -166,9 +164,9 @@ export const getPoolDetail = (details: PoolDetails, asset: Asset): O.Option<Pool
         O.fromNullable,
         O.map(
           (detailAsset) =>
-            detailAsset.chain === asset.chain &&
+            detailAsset.chain.toUpperCase() === asset.chain.toUpperCase() &&
             detailAsset.symbol.toUpperCase() === asset.symbol.toUpperCase() &&
-            detailAsset.ticker === asset.ticker
+            detailAsset.ticker.toUpperCase() === asset.ticker.toUpperCase()
         ),
         O.getOrElse(() => false)
       )
@@ -195,14 +193,14 @@ export const toPoolBalance = (baseAmountString: string): BaseAmount => baseAmoun
  */
 export const toPoolData = ({ assetDepth, runeDepth }: Pick<PoolDetail, 'assetDepth' | 'runeDepth'>): PoolData => ({
   assetBalance: toPoolBalance(assetDepth),
-  runeBalance: toPoolBalance(runeDepth)
+  dexBalance: toPoolBalance(runeDepth)
 })
 
 /**
  * Filter out mini tokens from pool assets
  */
 export const filterPoolAssets = (poolAssets: string[]) => {
-  return poolAssets.filter((poolAsset) => !isMiniToken(assetFromString(poolAsset) || { symbol: '' }))
+  return poolAssets.filter((poolAsset) => assetFromString(poolAsset) || { symbol: '' })
 }
 
 export const getPoolAddressesByChain = (addresses: PoolAddresses, chain: Chain): O.Option<PoolAddress> =>
@@ -235,7 +233,6 @@ export const getOutboundAssetFeeByChain = (
 
       switch (chain) {
         case BCHChain:
-        case BNBChain:
         case GAIAChain:
         case DOGEChain:
         case BSCChain:

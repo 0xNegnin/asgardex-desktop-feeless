@@ -1,3 +1,27 @@
+# 1.21.7 (2024-tba)
+
+# Add
+
+- Slip tolerance to Maya swaps [#226](https://github.com/asgardex/asgardex-desktop/pull/237)
+
+## Updates/Fixes
+
+- Fix Arb Approval [#210](https://github.com/asgardex/asgardex-desktop/pull/210)
+- Remove BNB Bep2Chain & Client [#199](https://github.com/asgardex/asgardex-desktop/pull/200)
+- Fix Quote swap White page error [#216](https://github.com/asgardex/asgardex-desktop/pull/216)
+- Fix Master ReadMe [#214] (https://github.com/asgardex/asgardex-desktop/pull/222)
+- Update AVAX BSC whitelists [#220] (https://github.com/asgardex/asgardex-desktop/pull/220)
+- Fix Maya Asset pricing [#220] (https://github.com/asgardex/asgardex-desktop/pull/220)
+- Fix Cosmos Client & added Cosmos Ledger [#212](https://github.com/asgardex/asgardex-desktop/pull/213)
+- Update Dropdown action menu [#194] (https://github.com/asgardex/asgardex-desktop/pull/223)
+- Update poolAddress & pooldetail logic for all Sends [#227] (https://github.com/asgardex/asgardex-desktop/pull/232)
+- Fix EVM send Dollar value bug [#230] (https://github.com/asgardex/asgardex-desktop/pull/231)
+- Fix Mayachain liquidity charts & stats [#224] (https://github.com/asgardex/asgardex-desktop/pull/234)
+- Improve Asset page performance & update Total title [#225] (https://github.com/asgardex/asgardex-desktop/pull/238)
+- Update Mac Os Notarization logic [#242] (https://github.com/asgardex/asgardex-desktop/pull/243)
+- Fix cpu hogging, reduced fetches [#246] (https://github.com/asgardex/asgardex-desktop/pull/251)
+- Fixed transaction modal hanging [#192] (https://github.com/asgardex/asgardex-desktop/pull/252)
+
 # 1.21.6 (2024-04-24)
 
 # Add

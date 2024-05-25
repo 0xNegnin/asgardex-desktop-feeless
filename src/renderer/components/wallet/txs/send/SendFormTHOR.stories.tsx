@@ -48,7 +48,7 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
   )
   const { thorchainQuery } = useThorchainQueryContext()
 
-  const runeBalance: WalletBalance = mockWalletBalance({
+  const dexBalance: WalletBalance = mockWalletBalance({
     amount: assetToBase(assetAmount(balance))
   })
 
@@ -56,8 +56,8 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
     <Component
       asset={{ asset: AssetRuneNative, walletAddress: 'thorxyz', walletType, walletIndex: 0, hdMode: 'default' }}
       transfer$={transfer$}
-      balances={[runeBalance]}
-      balance={runeBalance}
+      balances={[dexBalance]}
+      balance={dexBalance}
       addressValidation={(_: string) => validAddress}
       fee={feeRD}
       reloadFeesHandler={() => console.log('reload fees')}
@@ -70,6 +70,7 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
       thorchainQuery={thorchainQuery}
       getExplorerTxUrl={(txHash: TxHash) => O.some(`url/asset-${txHash}`)}
       poolDetails={[]}
+      oPoolAddress={O.none}
     />
   )
 }

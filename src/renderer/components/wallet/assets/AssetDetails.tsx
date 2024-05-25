@@ -17,7 +17,6 @@ import { chainToString, isChainOfMaya, isChainOfThor } from '../../../../shared/
 import { WalletType } from '../../../../shared/wallet/types'
 import { DEFAULT_WALLET_TYPE } from '../../../const'
 import * as AssetHelper from '../../../helpers/assetHelper'
-import { isCosmosChain, isThorChain } from '../../../helpers/chainHelper'
 import * as poolsRoutes from '../../../routes/pools'
 import * as walletRoutes from '../../../routes/wallet'
 import { OpenExplorerTxUrl, TxsPageRD } from '../../../services/clients'
@@ -74,8 +73,8 @@ export const AssetDetails: React.FC<Props> = (props): JSX.Element => {
   const intl = useIntl()
 
   const isHaltedChain = haltedChains.includes(chain)
-  const disableSwap = isHaltedChain || AssetHelper.isMayaAsset(asset) || asset.synth
-  const disableAdd = isHaltedChain || asset.synth || AssetHelper.isMayaAsset(asset)
+  const disableSwap = isHaltedChain || AssetHelper.isMayaAsset(asset)
+  const disableAdd = isHaltedChain || AssetHelper.isMayaAsset(asset)
 
   // If the chain is not halted, perform the action
 
@@ -190,15 +189,16 @@ export const AssetDetails: React.FC<Props> = (props): JSX.Element => {
                   disabled={disableSwap}>
                   {intl.formatMessage({ id: 'common.swap' })}
                 </FlatButton>
-                <FlatButton
-                  className="m-2 ml-2 min-w-[200px]"
-                  size="large"
-                  color="primary"
-                  onClick={disableAdd ? undefined : walletActionManageClick}
-                  disabled={disableAdd}>
-                  {intl.formatMessage({ id: 'common.manage' })}
-                </FlatButton>
-
+                {!asset.synth && (
+                  <FlatButton
+                    className="m-2 ml-2 min-w-[200px]"
+                    size="large"
+                    color="primary"
+                    onClick={disableAdd ? undefined : walletActionManageClick}
+                    disabled={disableAdd}>
+                    {intl.formatMessage({ id: 'common.manage' })}
+                  </FlatButton>
+                )}
                 {AssetHelper.isRuneNativeAsset(asset) && (
                   <BorderButton
                     className="m-2 ml-2 min-w-[200px]"
@@ -211,7 +211,7 @@ export const AssetDetails: React.FC<Props> = (props): JSX.Element => {
                 )}
                 {AssetHelper.isCacaoAsset(asset) && (
                   <BorderButton
-                    className="min-w-[200px]"
+                    className="m-2 ml-2 min-w-[200px]"
                     size="large"
                     color="primary"
                     onClick={disableSend ? undefined : walletActionDepositClick}
@@ -237,12 +237,7 @@ export const AssetDetails: React.FC<Props> = (props): JSX.Element => {
           </TextButton>
         </Col>
         <Col span={24}>
-          {/*
-            Disable txs history for Cosmos temporarily
-            as long as an external API can't provide it - currently `https://lcd-cosmoshub.keplr.app`
-            See https://github.com/thorchain/asgardex-electron/pull/2405
-           */}
-          {isCosmosChain(chain) || asset.synth || isThorChain(chain) ? (
+          {asset.synth ? (
             <WarningView
               subTitle={intl.formatMessage(
                 { id: 'wallet.txs.history.disabled' },

@@ -53,8 +53,7 @@ export const PoolCards: React.FC<Props> = (props) => {
       apy,
       fees,
       totalTx,
-      members,
-      ilpPaid
+      members
     }: {
       isLoading: boolean
       liquidity: AssetAmount
@@ -64,7 +63,6 @@ export const PoolCards: React.FC<Props> = (props) => {
       fees: AssetAmount
       totalTx: BigNumber
       members: BigNumber
-      ilpPaid: AssetAmount
     }) => (
       <Styled.Container>
         <Styled.Col>
@@ -127,15 +125,6 @@ export const PoolCards: React.FC<Props> = (props) => {
             displayValue={`${abbreviateNumber(apy.toNumber(), 2)} %`}
           />
         </Styled.Col>
-
-        <Styled.Col>
-          <PoolStatus
-            isLoading={isLoading}
-            fullValue={getFullValue(ilpPaid)}
-            label={intl.formatMessage({ id: 'deposit.poolDetails.ilpPaid' })}
-            displayValue={`${priceSymbol} ${abbreviateNumber(ilpPaid.amount().toNumber(), 2)}`}
-          />
-        </Styled.Col>
       </Styled.Container>
     ),
     [getFullValue, intl, poolsPeriod, priceSymbol, setPoolsPeriod]
@@ -153,8 +142,7 @@ export const PoolCards: React.FC<Props> = (props) => {
           apy: ZERO_BN,
           fees: ZERO_ASSET_AMOUNT,
           totalTx: ZERO_BN,
-          members: ZERO_BN,
-          ilpPaid: ZERO_ASSET_AMOUNT
+          members: ZERO_BN
         }),
       () =>
         renderCards({
@@ -165,8 +153,7 @@ export const PoolCards: React.FC<Props> = (props) => {
           apy: ZERO_BN,
           fees: ZERO_ASSET_AMOUNT,
           totalTx: ZERO_BN,
-          members: ZERO_BN,
-          ilpPaid: ZERO_ASSET_AMOUNT
+          members: ZERO_BN
         }),
       (error) => (
         <ErrorView
@@ -184,7 +171,6 @@ export const PoolCards: React.FC<Props> = (props) => {
           apy: H.getAPY(poolDetail),
           fees: H.getFees(poolStatsDetail, priceRatio),
           totalTx: H.getTotalTx(poolStatsDetail),
-          ilpPaid: H.getILPPaid(poolStatsDetail, priceRatio),
           members: H.getMembers(poolStatsDetail)
         })
     )

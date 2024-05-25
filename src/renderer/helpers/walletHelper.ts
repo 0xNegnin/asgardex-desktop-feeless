@@ -13,8 +13,8 @@ import { WalletAddress, WalletType } from '../../shared/wallet/types'
 import { ZERO_ASSET_AMOUNT } from '../const'
 import { WalletBalances } from '../services/clients'
 import { NonEmptyWalletBalances, WalletBalance } from '../services/wallet/types'
-import { isBnbAsset, isLtcAsset, isRuneNativeAsset, isCacaoAsset, isMayaAsset } from './assetHelper'
-import { isBchChain, isDashChain, isDogeChain, isLtcChain, isMayaChain, isThorChain } from './chainHelper'
+import { isLtcAsset, isRuneNativeAsset, isCacaoAsset, isMayaAsset } from './assetHelper'
+import { isArbChain, isBchChain, isDashChain, isDogeChain, isLtcChain, isMayaChain, isThorChain } from './chainHelper'
 import { eqAddress, eqAsset, eqChain, eqWalletType } from './fp/eq'
 
 /**
@@ -129,9 +129,6 @@ export const getAssetAmountFromBalances = (
     O.map(({ amount }) => baseToAsset(amount))
   )
 
-export const getBnbAmountFromBalances = (balances: WalletBalances): O.Option<AssetAmount> =>
-  getAssetAmountFromBalances(balances, isBnbAsset)
-
 export const getEVMAmountFromBalances = (balances: WalletBalances, assetToFind: Asset): O.Option<AssetAmount> =>
   getAssetAmountFromBalances(balances, (asset) => asset === assetToFind)
 
@@ -204,6 +201,8 @@ export const isEnabledLedger = (chain: Chain, network: Network) => {
   if (isDogeChain(chain) && network === Network.Testnet) return false
   // No DASH support on `testnet`
   if (isDashChain(chain) && network === Network.Testnet) return false
+  // No DASH support on `testnet`
+  if (isArbChain(chain)) return false
   // Disable for these chains
   if (isMayaChain(chain)) return false
   return true

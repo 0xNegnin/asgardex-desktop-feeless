@@ -1,6 +1,6 @@
-import { BNBChain } from '@xchainjs/xchain-binance'
 import { BTCChain } from '@xchainjs/xchain-bitcoin'
 import { BCHChain } from '@xchainjs/xchain-bitcoincash'
+import { BSCChain } from '@xchainjs/xchain-bsc'
 import { Balance, Network } from '@xchainjs/xchain-client'
 import { GAIAChain } from '@xchainjs/xchain-cosmos'
 import { DOGEChain } from '@xchainjs/xchain-doge'
@@ -13,9 +13,9 @@ import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 
 import { PoolsWatchList } from '../../shared/api/io'
-import { ASSETS_TESTNET } from '../../shared/mock/assets'
-import { AssetBNB, AssetRuneNative } from '../../shared/utils/asset'
-import { AssetBUSD74E } from '../const'
+import { ASSETS_MAINNET } from '../../shared/mock/assets'
+import { AssetRuneNative, AssetBSC } from '../../shared/utils/asset'
+import { AssetUSDTBSC } from '../const'
 import { GetPoolsStatusEnum, PoolDetails } from '../services/midgard/types'
 import { toPoolData } from '../services/midgard/utils'
 import { DEFAULT_MIMIR_HALT } from '../services/thorchain/const'
@@ -31,7 +31,7 @@ import {
 
 describe('helpers/poolHelper/', () => {
   const mockPoolDetail: PoolDetail = {
-    asset: assetToString(AssetBNB),
+    asset: assetToString(AssetBSC),
     assetDepth: '0',
     assetPrice: '0',
     assetPriceUSD: '0',
@@ -49,14 +49,17 @@ describe('helpers/poolHelper/', () => {
     saversUnits: '0',
     saversAPR: '0',
     totalCollateral: '0',
-    totalDebtTor: '0'
+    totalDebtTor: '0',
+    earnings: '0',
+    earningsAnnualAsPercentOfDepth: '0',
+    lpLuvi: '0'
   }
   const pool1: PoolDetail = { ...mockPoolDetail, status: GetPoolsStatusEnum.Staged, runeDepth: '1000' }
   const pool2: PoolDetail = { ...mockPoolDetail, status: GetPoolsStatusEnum.Available, runeDepth: '2000' }
   const pool3: PoolDetail = { ...mockPoolDetail, status: GetPoolsStatusEnum.Suspended, runeDepth: '0' }
   const pool4: PoolDetail = { ...mockPoolDetail, status: GetPoolsStatusEnum.Staged, runeDepth: '4000' }
 
-  const watchlist: PoolsWatchList = [AssetBNB]
+  const watchlist: PoolsWatchList = [AssetBSC]
 
   describe('getDeepestPool', () => {
     it('returns deepest pool', () => {
@@ -74,16 +77,16 @@ describe('helpers/poolHelper/', () => {
 
   describe('getPoolTableRowsData', () => {
     const poolDetails: PoolDetails = [
-      { ...mockPoolDetail, asset: assetToString(ASSETS_TESTNET.TOMO), status: GetPoolsStatusEnum.Available },
-      { ...mockPoolDetail, asset: assetToString(ASSETS_TESTNET.FTM), status: GetPoolsStatusEnum.Available }
+      { ...mockPoolDetail, asset: assetToString(ASSETS_MAINNET.ETH), status: GetPoolsStatusEnum.Available },
+      { ...mockPoolDetail, asset: assetToString(ASSETS_MAINNET.BTC), status: GetPoolsStatusEnum.Available }
     ]
     const pendingPoolDetails: PoolDetails = [
-      { ...mockPoolDetail, asset: assetToString(ASSETS_TESTNET.BOLT), status: GetPoolsStatusEnum.Staged },
-      { ...mockPoolDetail, asset: assetToString(ASSETS_TESTNET.FTM), status: GetPoolsStatusEnum.Staged }
+      { ...mockPoolDetail, asset: assetToString(ASSETS_MAINNET.DOGE), status: GetPoolsStatusEnum.Staged },
+      { ...mockPoolDetail, asset: assetToString(ASSETS_MAINNET.BTC), status: GetPoolsStatusEnum.Staged }
     ]
 
     const pricePoolData: PoolData = {
-      runeBalance: assetToBase(assetAmount(110)),
+      dexBalance: assetToBase(assetAmount(110)),
       assetBalance: assetToBase(assetAmount(100))
     }
 
@@ -96,8 +99,8 @@ describe('helpers/poolHelper/', () => {
       })
       expect(result.length).toEqual(2)
       // Note: `getPoolTableRowsData` reverses the order of given `poolDetails`
-      expect(result[0].asset).toEqual(ASSETS_TESTNET.FTM)
-      expect(result[1].asset).toEqual(ASSETS_TESTNET.BOLT)
+      expect(result[0].asset).toEqual(ASSETS_MAINNET.BTC)
+      expect(result[1].asset).toEqual(ASSETS_MAINNET.DOGE)
     })
 
     it('returns data for available pools', () => {
@@ -109,8 +112,8 @@ describe('helpers/poolHelper/', () => {
       })
       expect(result.length).toEqual(2)
       // Note: `getPoolTableRowsData` reverses the order of given `poolDetails`
-      expect(result[0].asset).toEqual(ASSETS_TESTNET.FTM)
-      expect(result[1].asset).toEqual(ASSETS_TESTNET.TOMO)
+      expect(result[0].asset).toEqual(ASSETS_MAINNET.BTC)
+      expect(result[1].asset).toEqual(ASSETS_MAINNET.ETH)
     })
   })
 
@@ -124,7 +127,7 @@ describe('helpers/poolHelper/', () => {
     it('transforms `PoolData', () => {
       const result = toPoolData(poolDetail)
       expect(result.assetBalance.amount().toNumber()).toEqual(11000000000)
-      expect(result.runeBalance.amount().toNumber()).toEqual(10000000000)
+      expect(result.dexBalance.amount().toNumber()).toEqual(10000000000)
     })
   })
 
@@ -132,24 +135,24 @@ describe('helpers/poolHelper/', () => {
     const poolDetails: PoolDetails = [
       {
         ...mockPoolDetail,
-        asset: assetToString(AssetBNB),
+        asset: assetToString(AssetBSC),
         assetDepth: '1000000000',
         runeDepth: '10000000000'
       }
     ]
 
     const usdPricePool: PricePool = {
-      asset: AssetBUSD74E,
+      asset: AssetUSDTBSC,
       poolData: {
         assetBalance: assetToBase(assetAmount(110000)),
-        runeBalance: assetToBase(assetAmount(100000))
+        dexBalance: assetToBase(assetAmount(100000))
       }
     }
 
-    it('returns a price for BNB in USD', () => {
+    it('returns a price for BSC in USD', () => {
       const balance: Balance = {
         amount: baseAmount('1'),
-        asset: AssetBNB
+        asset: AssetBSC
       }
       const result = FP.pipe(
         getPoolPriceValue({ balance, poolDetails, pricePool: usdPricePool }),
@@ -179,7 +182,7 @@ describe('helpers/poolHelper/', () => {
     it('returns a no price if no pools are available', () => {
       const balance: Balance = {
         amount: baseAmount('1'),
-        asset: AssetBNB
+        asset: AssetBSC
       }
       const result = getPoolPriceValue({ balance, poolDetails: [], pricePool: usdPricePool })
       expect(result).toBeNone()
@@ -187,10 +190,10 @@ describe('helpers/poolHelper/', () => {
   })
 
   describe('disableAllActions', () => {
-    const haltedChains: Chain[] = [ETHChain, BNBChain]
+    const haltedChains: Chain[] = [ETHChain, BSCChain]
     it('true for any chain if THORChain is halted', () => {
       const result = disableAllActions({
-        chain: BNBChain,
+        chain: BSCChain,
         haltedChains,
         mimirHalt: { ...DEFAULT_MIMIR_HALT, haltTHORChain: true }
       })
@@ -228,9 +231,9 @@ describe('helpers/poolHelper/', () => {
       })
       expect(result).toBeTruthy()
     })
-    it('true if BNB is in halted list, but no mimir halt', () => {
+    it('true if BSC is in halted list, but no mimir halt', () => {
       const result = disableAllActions({
-        chain: BNBChain,
+        chain: BSCChain,
         haltedChains,
         mimirHalt: DEFAULT_MIMIR_HALT
       })
@@ -247,10 +250,10 @@ describe('helpers/poolHelper/', () => {
   })
 
   describe('disableTradingActions', () => {
-    const haltedChains: Chain[] = [ETHChain, BNBChain]
+    const haltedChains: Chain[] = [ETHChain, BSCChain]
     it('true for any chain if trading is halted', () => {
       const result = disableTradingActions({
-        chain: BNBChain,
+        chain: BSCChain,
         haltedChains,
         mimirHalt: {
           ...DEFAULT_MIMIR_HALT,
@@ -326,13 +329,13 @@ describe('helpers/poolHelper/', () => {
       expect(result).toBeTruthy()
     })
 
-    it('true for BNB if BNB trading is halted', () => {
+    it('true for BSC if BSC trading is halted', () => {
       const result = disableTradingActions({
-        chain: BNBChain,
+        chain: BSCChain,
         haltedChains,
         mimirHalt: {
           ...DEFAULT_MIMIR_HALT,
-          haltBNBTrading: true
+          haltBSCTrading: true
         }
       })
       expect(result).toBeTruthy()
@@ -358,7 +361,7 @@ describe('helpers/poolHelper/', () => {
           haltBTCTrading: true,
           haltETHTrading: true,
           haltBCHTrading: true,
-          haltBNBTrading: true,
+          haltBSCTrading: true,
           haltGAIATrading: true
         }
       })
@@ -374,9 +377,9 @@ describe('helpers/poolHelper/', () => {
       })
       expect(result).toBeTruthy()
     })
-    it('true if BNB is in halted list, but no mimir trading halt', () => {
+    it('true if BSC is in halted list, but no mimir trading halt', () => {
       const result = disableTradingActions({
-        chain: BNBChain,
+        chain: BSCChain,
         haltedChains,
         mimirHalt: {
           ...DEFAULT_MIMIR_HALT
@@ -400,8 +403,8 @@ describe('helpers/poolHelper/', () => {
   describe('disablePoolActions', () => {
     it('true if trading is halted for this chain', () => {
       const result = disablePoolActions({
-        chain: BNBChain,
-        haltedChains: [ETHChain, BNBChain],
+        chain: BTCChain,
+        haltedChains: [ETHChain, BTCChain],
         mimirHalt: { ...DEFAULT_MIMIR_HALT }
       })
       expect(result).toBeTruthy()
@@ -409,23 +412,23 @@ describe('helpers/poolHelper/', () => {
 
     it('true if LP is paused', () => {
       const result = disablePoolActions({
-        chain: BNBChain,
-        haltedChains: [ETHChain, BNBChain],
+        chain: BTCChain,
+        haltedChains: [ETHChain, BTCChain],
         mimirHalt: { ...DEFAULT_MIMIR_HALT, pauseLp: true }
       })
       expect(result).toBeTruthy()
     })
-    it('true if BNB chain is not in halted list, but paused', () => {
+    it('true if BTC chain is not in halted list, but paused', () => {
       const result = disablePoolActions({
-        chain: BNBChain,
+        chain: BTCChain,
         haltedChains: [],
-        mimirHalt: { ...DEFAULT_MIMIR_HALT, pauseLpBNB: true }
+        mimirHalt: { ...DEFAULT_MIMIR_HALT, pauseLpBTC: true }
       })
       expect(result).toBeTruthy()
     })
-    it('true if BNB chain is not in halted list, but LP paused', () => {
+    it('true if BTC chain is not in halted list, but LP paused', () => {
       const result = disablePoolActions({
-        chain: BNBChain,
+        chain: BTCChain,
         haltedChains: [],
         mimirHalt: { ...DEFAULT_MIMIR_HALT, pauseLp: true }
       })

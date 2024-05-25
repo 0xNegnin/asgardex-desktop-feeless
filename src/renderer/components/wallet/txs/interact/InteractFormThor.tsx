@@ -26,7 +26,7 @@ import * as O from 'fp-ts/lib/Option'
 import { debounce } from 'lodash'
 import { useIntl } from 'react-intl'
 
-import { AssetAVAX, AssetBNB, AssetBTC, AssetETH, AssetRuneNative } from '../../../../../shared/utils/asset'
+import { AssetAVAX, AssetBTC, AssetDOGE, AssetETH, AssetRuneNative } from '../../../../../shared/utils/asset'
 import { isKeystoreWallet, isLedgerWallet } from '../../../../../shared/utils/guard'
 import { HDMode, WalletType } from '../../../../../shared/wallet/types'
 import { AssetUSDTDAC, ZERO_BASE_AMOUNT } from '../../../../const'
@@ -882,9 +882,6 @@ export const InteractFormThor: React.FC<Props> = (props) => {
                       }
                     ]}>
                     <StyledR.Radio.Group onChange={handleRadioAssetChange} value={preferredAsset}>
-                      <StyledR.Radio className="text-gray2 dark:text-gray2d" value={AssetBNB}>
-                        BNB
-                      </StyledR.Radio>
                       <StyledR.Radio className="text-gray2 dark:text-gray2d" value={AssetBTC}>
                         BTC
                       </StyledR.Radio>
@@ -916,8 +913,8 @@ export const InteractFormThor: React.FC<Props> = (props) => {
                       <StyledR.Radio className="text-gray2 dark:text-gray2d" value={AssetETH.chain}>
                         ETH
                       </StyledR.Radio>
-                      <StyledR.Radio className="text-gray2 dark:text-gray2d" value={AssetBNB.chain}>
-                        BNB
+                      <StyledR.Radio className="text-gray2 dark:text-gray2d" value={AssetDOGE}>
+                        DOGE
                       </StyledR.Radio>
                     </StyledR.Radio.Group>
                   </Styled.FormItem>

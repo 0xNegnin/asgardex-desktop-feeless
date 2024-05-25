@@ -11,6 +11,7 @@ import * as Ord from 'fp-ts/lib/Ord'
 import { PoolsWatchList } from '../../shared/api/io'
 import { ONE_RUNE_BASE_AMOUNT } from '../../shared/mock/amount'
 import { AssetRuneNative } from '../../shared/utils/asset'
+import { PoolDetails as PoolDetailsMaya } from '../services/mayaMigard/types'
 import { PoolAddress, PoolDetails } from '../services/midgard/types'
 import { getPoolDetail, toPoolData } from '../services/midgard/utils'
 import { MimirHalt } from '../services/thorchain/types'
@@ -32,7 +33,7 @@ const ordByDepth = Ord.Contravariant.contramap(ordBaseAmount, ({ depthPrice }: P
  * Note: We don't have a "RUNE" pool in THORChain,
  * but do need such thing for pricing
  */
-export const RUNE_POOL_DATA: PoolData = { assetBalance: ONE_RUNE_BASE_AMOUNT, runeBalance: ONE_RUNE_BASE_AMOUNT }
+export const RUNE_POOL_DATA: PoolData = { assetBalance: ONE_RUNE_BASE_AMOUNT, dexBalance: ONE_RUNE_BASE_AMOUNT }
 
 /**
  * RUNE based `PricePool`
@@ -256,4 +257,13 @@ export const disablePoolActions = ({
 
   // Check `chain` is included in `haltedChains` (provided by `inbound_addresses` endpoint)
   return FP.pipe(haltedChains, isChainElem(chain))
+}
+
+/**
+ *
+ * @param poolDetails - type check
+ * @returns - correct type
+ */
+export const isPoolDetails = (poolDetails: PoolDetails | PoolDetailsMaya): poolDetails is PoolDetails => {
+  return (poolDetails as PoolDetails) !== undefined
 }

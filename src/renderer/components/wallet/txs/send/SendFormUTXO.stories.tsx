@@ -10,8 +10,6 @@ import { getMockRDValueFactory, RDStatus } from '../../../../../shared/mock/rdBy
 import { mockValidatePassword$ } from '../../../../../shared/mock/wallet'
 import { AssetBTC } from '../../../../../shared/utils/asset'
 import { WalletType } from '../../../../../shared/wallet/types'
-import { useMayachainQueryContext } from '../../../../contexts/MayachainQueryContext'
-import { useThorchainQueryContext } from '../../../../contexts/ThorchainQueryContext'
 import { THORCHAIN_DECIMAL } from '../../../../helpers/assetHelper'
 import { mockWalletBalance } from '../../../../helpers/test/testWalletHelper'
 import { FeesWithRatesRD } from '../../../../services/bitcoin/types'
@@ -49,7 +47,7 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
     walletAddress: 'btc wallet address'
   })
 
-  const runeBalance: WalletBalance = mockWalletBalance({
+  const dexBalance: WalletBalance = mockWalletBalance({
     amount: assetToBase(assetAmount(2, THORCHAIN_DECIMAL))
   })
 
@@ -73,21 +71,17 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
       () => Error('getting fees failed')
     )
   )
-  const { thorchainQuery } = useThorchainQueryContext()
-  const { mayachainQuery } = useMayachainQueryContext()
 
   return (
     <Component
       asset={{ asset: AssetBTC, walletAddress: 'btc-address', walletType, walletIndex: 0, hdMode: 'default' }}
       transfer$={transfer$}
-      balances={[btcBalance, runeBalance]}
+      balances={[btcBalance, dexBalance]}
       balance={btcBalance}
       addressValidation={(_: Address) => validAddress}
       feesWithRates={feesWithRates}
       reloadFeesHandler={() => console.log('reload fees')}
       validatePassword$={mockValidatePassword$}
-      thorchainQuery={thorchainQuery}
-      mayachainQuery={mayachainQuery}
       network={Network.Testnet}
       openExplorerTxUrl={(txHash: TxHash) => {
         console.log(`Open explorer - tx hash ${txHash}`)
@@ -95,6 +89,8 @@ const Template = ({ txRDStatus, feeRDStatus, balance, validAddress, walletType }
       }}
       getExplorerTxUrl={(txHash: TxHash) => O.some(`url/asset-${txHash}`)}
       poolDetails={[]}
+      oPoolAddress={O.none}
+      oPoolAddressMaya={O.none}
     />
   )
 }
