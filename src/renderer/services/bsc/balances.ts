@@ -1,3 +1,4 @@
+import { AssetBSC } from '@xchainjs/xchain-bsc'
 import { Network } from '@xchainjs/xchain-client'
 import { Asset } from '@xchainjs/xchain-util'
 import * as A from 'fp-ts/lib/Array'
@@ -5,9 +6,9 @@ import * as FP from 'fp-ts/lib/function'
 
 import { HDMode, WalletType } from '../../../shared/wallet/types'
 import { BscAssetsTestnet } from '../../const'
-import { validAssetForBSC } from '../../helpers/assetHelper'
 import { liveData } from '../../helpers/rx/liveData'
 import { observableState } from '../../helpers/stateHelper'
+import { BSC_TOKEN_WHITELIST } from '../../types/generated/thorchain/bscerc20whitelist'
 import * as C from '../clients'
 import { WalletBalance } from '../wallet/types'
 import { client$ } from './common'
@@ -29,10 +30,11 @@ const reloadBalances = () => {
 // temporary fix
 const targetSymbol = 'BSC-USD-0x55d398326f99059ff775485246999027b3197955'
 const newSymbol = 'USDT-0x55d398326f99059fF775485246999027B3197955'
+const newTicker = 'USDT'
 
 const replaceSymbol = (asset: Asset): Asset => {
   if (asset.symbol === targetSymbol) {
-    return { ...asset, symbol: newSymbol }
+    return { ...asset, symbol: newSymbol, ticker: newTicker }
   }
   return asset
 }
@@ -50,7 +52,20 @@ const balances$: ({
   hdMode: HDMode
 }) => C.WalletBalancesLD = ({ walletType, walletIndex, network, hdMode }) => {
   // For testnet we limit requests by using pre-defined assets only
-  const assets: Asset[] | undefined = network === Network.Testnet ? BscAssetsTestnet : undefined
+  // For mainnet we use the whiteList assets to avoid calling balances on airdropped scam tokens.
+  const getAssets = (network: Network): Asset[] | undefined => {
+    const assets: Asset[] | undefined = network === Network.Testnet ? BscAssetsTestnet : undefined
+
+    return network === Network.Mainnet
+      ? FP.pipe(
+          BSC_TOKEN_WHITELIST,
+          A.filter(({ asset }) => !asset.synth),
+          A.map(({ asset }) => asset),
+          (whitelistedAssets) => [AssetBSC, ...whitelistedAssets]
+        )
+      : assets
+  }
+  const assets: Asset[] | undefined = getAssets(network)
   return FP.pipe(
     C.balances$({
       client$,
@@ -67,8 +82,7 @@ const balances$: ({
         A.map((balance: WalletBalance) => ({
           ...balance,
           asset: replaceSymbol(balance.asset)
-        })),
-        A.filter(({ asset }) => validAssetForBSC(asset, network))
+        }))
       )
     )
   )
