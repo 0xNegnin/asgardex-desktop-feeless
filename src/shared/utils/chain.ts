@@ -55,13 +55,13 @@ export const getChainsForDex = (dexName: string): ReadonlyArray<Chain> => {
 
 // Function to check if a chain is supported by MAYA DEX
 export const isChainOfMaya = (chain: Chain): boolean => {
-  const mayaChains = DEX_CHAINS['MAYA'] // Retrieve MAYA's chains from the mapping
+  const mayaChains = DEX_CHAINS[MAYAChain] // Retrieve MAYA's chains from the mapping
   return mayaChains.includes(chain)
 }
 
 // Function to check if a chain is supported by THOR DEX
 export const isChainOfThor = (chain: Chain): boolean => {
-  const thorChains = DEX_CHAINS['THOR'] // Retrieve THOR's chains from the mapping
+  const thorChains = DEX_CHAINS[THORChain] // Retrieve THOR's chains from the mapping
   return thorChains.includes(chain)
 }
 /**
@@ -81,7 +81,7 @@ export const chainToString = (chain: Chain): string => {
     case BTCChain:
       return 'Bitcoin'
     case GAIAChain:
-      return 'Cosmos'
+      return 'GAIA'
     case DOGEChain:
       return 'Dogecoin'
     case ETHChain:

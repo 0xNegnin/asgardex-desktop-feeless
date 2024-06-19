@@ -1,6 +1,5 @@
 import * as RD from '@devexperts/remote-data-ts'
-import { AssetCacao } from '@xchainjs/xchain-mayachain'
-import { AssetRuneNative } from '@xchainjs/xchain-thorchain'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import { isSynthAsset } from '@xchainjs/xchain-util'
 import * as Rx from 'rxjs'
 import * as RxOp from 'rxjs/operators'
@@ -30,21 +29,24 @@ export const swap$ = ({
   memo,
   walletType,
   sender,
+  walletAccount,
   walletIndex,
   hdMode,
   dex
 }: SwapTxParams): SwapTxState$ => {
   // udpate this to suit mayaChainSwap
-  const { chain } = asset.synth ? (dex === 'THOR' ? AssetRuneNative : AssetCacao) : asset
+  const { chain } = asset.synth ? dex.asset : asset
 
   const requests$ = Rx.of(poolAddresses).pipe(
     // 1. Validate pool address or node
     RxOp.switchMap((poolAddresses) =>
       Rx.iif(
         () =>
-          dex === 'THOR' ? isRuneNativeAsset(asset) || isSynthAsset(asset) : isCacaoAsset(asset) || isSynthAsset(asset),
-        dex === 'THOR' ? validateNode$() : mayaValidateNode$(),
-        dex === 'THOR'
+          dex.chain === THORChain
+            ? isRuneNativeAsset(asset) || isSynthAsset(asset)
+            : isCacaoAsset(asset) || isSynthAsset(asset),
+        dex.chain === THORChain ? validateNode$() : mayaValidateNode$(),
+        dex.chain === THORChain
           ? midgardPoolsService.validatePool$(poolAddresses, chain)
           : mayaMidgardPoolsService.validatePool$(poolAddresses, chain)
       )
@@ -60,6 +62,7 @@ export const swap$ = ({
         memo,
         feeOption: ChainTxFeeOption.SWAP,
         sender,
+        walletAccount,
         walletIndex,
         hdMode,
         dex

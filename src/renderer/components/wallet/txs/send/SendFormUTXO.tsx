@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as RD from '@devexperts/remote-data-ts'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
 import { FeeOption, FeesWithRates, Network } from '@xchainjs/xchain-client'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import {
   Address,
   assetAmount,
@@ -85,7 +86,7 @@ export type Props = {
 
 export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
   const {
-    asset: { walletType, walletIndex, hdMode, walletAddress },
+    asset: { walletType, walletAccount, walletIndex, hdMode, walletAddress },
     poolDetails,
     balances,
     balance,
@@ -343,7 +344,7 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
   // useEffect to fetch data from query
   useEffect(() => {
     const maxAmountPrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset, amount: maxAmount },
             poolDetails,
@@ -355,7 +356,7 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
             pricePool
           })
     const amountPrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset, amount: amountToSend },
             poolDetails,
@@ -367,7 +368,7 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
             pricePool
           })
     const assetFeePrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset, amount: assetFee.baseAmount },
             poolDetails,
@@ -509,6 +510,7 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
     subscribeSendTxState(
       transfer$({
         walletType,
+        walletAccount,
         walletIndex,
         hdMode,
         sender: walletAddress,
@@ -516,13 +518,15 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
         asset,
         amount: amountToSend,
         feeOption: selectedFeeOptionKey,
-        memo: currentMemo
+        memo: currentMemo,
+        dex
       })
     )
   }, [
     subscribeSendTxState,
     transfer$,
     walletType,
+    walletAccount,
     walletIndex,
     hdMode,
     walletAddress,
@@ -530,7 +534,8 @@ export const SendFormUTXO: React.FC<Props> = (props): JSX.Element => {
     asset,
     amountToSend,
     selectedFeeOptionKey,
-    currentMemo
+    currentMemo,
+    dex
   ])
 
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)

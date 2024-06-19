@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import * as RD from '@devexperts/remote-data-ts'
 import { Network } from '@xchainjs/xchain-client'
+import { MAYAChain } from '@xchainjs/xchain-mayachain'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import { Dropdown, Collapse } from 'antd'
 import { MenuProps } from 'antd/lib/menu'
 import { ItemType } from 'antd/lib/menu/hooks/useItems'
@@ -16,6 +18,10 @@ import { LOCALES } from '../../i18n'
 import { AVAILABLE_DEXS, AVAILABLE_NETWORKS } from '../../services/const'
 import { CheckMayanodeNodeUrlHandler, CheckMayanodeRpcUrlHandler } from '../../services/mayachain/types'
 import { CheckMidgardUrlHandler, MidgardUrlRD } from '../../services/midgard/types'
+import {
+  CheckMidgardUrlHandler as CheckMidgardMayaUrlHandler,
+  MidgardUrlRD as MidgardMayaUrlRD
+} from '../../services/midgard/types'
 import { CheckThornodeNodeUrlHandler, CheckThornodeRpcUrlHandler } from '../../services/thorchain/types'
 import { DownIcon } from '../icons'
 import { Menu } from '../shared/menu'
@@ -41,8 +47,11 @@ export type Props = {
   collapsed: boolean
   toggleCollapse: FP.Lazy<void>
   midgardUrl: MidgardUrlRD
+  midgardMayaUrl: MidgardMayaUrlRD
   onChangeMidgardUrl: (url: string) => void
+  onChangeMidgardMayaUrl: (url: string) => void
   checkMidgardUrl$: CheckMidgardUrlHandler
+  checkMidgardMayaUrl$: CheckMidgardMayaUrlHandler
   checkThornodeNodeUrl$: CheckThornodeNodeUrlHandler
   checkMayanodeNodeUrl$: CheckMayanodeNodeUrlHandler
   onChangeThornodeNodeUrl: (url: string) => void
@@ -87,8 +96,11 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
     collapsed,
     toggleCollapse,
     midgardUrl: midgardUrlRD,
+    midgardMayaUrl: midgardMayaUrlRD,
     onChangeMidgardUrl,
+    onChangeMidgardMayaUrl,
     checkMidgardUrl$,
+    checkMidgardMayaUrl$,
     onChangeThornodeNodeUrl,
     onChangeMayanodeNodeUrl,
     checkThornodeNodeUrl$,
@@ -155,7 +167,10 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
   )
   const changeDexHandler: MenuProps['onClick'] = useCallback(
     ({ key }: { key: string }) => {
-      changeDex(key as Dex)
+      const newDex = AVAILABLE_DEXS.find((dex) => dex.chain === key)
+      if (newDex) {
+        changeDex(newDex)
+      }
     },
     [changeDex]
   )
@@ -173,10 +188,10 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
     }
   }, [])
   const dexTextColor = useCallback((dex: Dex) => {
-    switch (dex) {
-      case 'THOR':
+    switch (dex.chain) {
+      case THORChain:
         return 'text-turquoise'
-      case 'MAYA':
+      case MAYAChain:
         return 'text-cyanblue'
       default:
         return 'text-text2 dark:text-text2'
@@ -215,12 +230,12 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
             label: (
               <div
                 className={`flex items-center px-10px py-[8px] ${dexTextColor(n)} text-16 uppercase ${
-                  n === dex ? 'font-mainSemiBold' : 'font-main'
+                  n.chain === dex.chain ? 'font-mainSemiBold' : 'font-main'
                 }`}>
-                {n}
+                {n.chain}
               </div>
             ),
-            key: n
+            key: n.chain
           }))
         )}
       />
@@ -242,7 +257,7 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
     () => (
       <Dropdown overlay={dexMenu} trigger={['click']} placement="bottom">
         <div className="flex cursor-pointer justify-center ">
-          <h3 className={`font-main text-16 uppercase ${dexTextColor(dex)}`}>{dex}</h3>
+          <h3 className={`font-main text-16 uppercase ${dexTextColor(dex)}`}>{dex.chain}</h3>
           <DownIcon />
         </div>
       </Dropdown>
@@ -316,8 +331,18 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
     const empty = () => ''
     return FP.pipe(midgardUrlRD, RD.fold(empty, empty, empty, FP.identity))
   }, [midgardUrlRD])
+  const midgardMayaUrl = useMemo(() => {
+    const empty = () => ''
+    return FP.pipe(midgardMayaUrlRD, RD.fold(empty, empty, empty, FP.identity))
+  }, [midgardMayaUrlRD])
 
-  const [advancedActive, setAdvancedActive] = useState(false)
+  const [advancedActive, setAdvancedActive] = useState(() => {
+    const cachedValue = localStorage.getItem('advanceActive')
+    return cachedValue ? JSON.parse(cachedValue) : true
+  })
+  useEffect(() => {
+    localStorage.setItem('openPanelKeys', JSON.stringify(advancedActive))
+  }, [advancedActive])
 
   return (
     <div className="mt-50px flex-row bg-bg0 px-40px py-10px dark:bg-bg0d">
@@ -352,7 +377,7 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
                   className={`mb-0 !py-0 !pl-0 !pr-10px font-main !text-18 uppercase text-text0 dark:text-text0d ${
                     advancedActive ? 'opacity-100' : 'opacity-60'
                   }`}
-                  onClick={() => setAdvancedActive((v) => !v)}>
+                  onClick={() => setAdvancedActive((v: Boolean) => !v)}>
                   {intl.formatMessage({ id: 'common.advanced' })}
                 </TextButton>
                 <SwitchButton active={advancedActive} onChange={(active) => setAdvancedActive(active)}></SwitchButton>
@@ -398,6 +423,16 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
                     </Section>
                   </Section>
                   <Section className="mt-20px" title="Mayachain URls ">
+                    <Section className="ml-20px mt-10px" title="Midgard Mayachain">
+                      <EditableUrl
+                        className="w-full xl:w-3/4"
+                        url={midgardMayaUrl}
+                        onChange={onChangeMidgardMayaUrl}
+                        loading={RD.isPending(midgardMayaUrlRD)}
+                        checkUrl$={checkMidgardMayaUrl$}
+                        successMsg={intl.formatMessage({ id: 'midgard.url.valid' })}
+                      />
+                    </Section>
                     <Section className="ml-20px mt-10px" title="MayaNode API">
                       <EditableUrl
                         className="w-full xl:w-3/4"
@@ -407,7 +442,7 @@ export const AppSettings: React.FC<Props> = (props): JSX.Element => {
                         successMsg={intl.formatMessage({ id: 'setting.mayanode.node.valid' })}
                       />
                     </Section>
-                    <Section className="ml-20px" title="MAYANode RPC">
+                    <Section className="ml-20px mt-10px" title="MAYANode RPC">
                       <EditableUrl
                         className="w-full xl:w-3/4"
                         url={mayanodeRpcUrl}

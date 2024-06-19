@@ -5,6 +5,7 @@ import { Cog8ToothIcon } from '@heroicons/react/20/solid'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
 import { FeeOption, Fees, Network } from '@xchainjs/xchain-client'
 import { validateAddress } from '@xchainjs/xchain-evm'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import {
   bn,
   baseToAsset,
@@ -97,7 +98,7 @@ export type Props = {
 
 export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const {
-    asset: { walletType, walletIndex, hdMode, walletAddress },
+    asset: { walletType, walletAccount, walletIndex, hdMode, walletAddress },
     poolDetails,
     balances,
     balance,
@@ -304,8 +305,8 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       if (!validateAddress(value.toLowerCase())) {
         return Promise.reject(intl.formatMessage({ id: 'wallet.errors.address.invalid' }))
       }
-      if (inboundAddress['THOR'] === value || inboundAddress['MAYA'] === value) {
-        const dexInbound = inboundAddress['THOR'] === value ? 'Thorchain' : 'Mayachain'
+      if (inboundAddress[THORChain] === value || inboundAddress['MAYA'] === value) {
+        const dexInbound = inboundAddress[THORChain] === value ? 'Thorchain' : 'Mayachain'
         const type = `${dexInbound} ${asset.chain} Inbound`
         setWarningMessage(intl.formatMessage({ id: 'wallet.errors.address.inbound' }, { type: type }))
       } else {
@@ -349,7 +350,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     const amountValue = O.getOrElse(() => ZERO_BASE_AMOUNT)(amountToSend)
 
     const maxAmountPrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset, amount: maxAmount },
             poolDetails,
@@ -361,7 +362,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
             pricePool: pricePoolMaya
           })
     const amountPrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset, amount: amountValue },
             poolDetails,
@@ -373,7 +374,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
             pricePool: pricePoolMaya
           })
     const assetFeePrice =
-      isPoolDetails(poolDetails) && dex === 'THOR'
+      isPoolDetails(poolDetails) && dex.chain === THORChain
         ? getPoolPriceValue({
             balance: { asset: sourceChainAsset, amount: assetFee.baseAmount },
             poolDetails,
@@ -624,6 +625,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
           subscribeSendTxState(
             transfer$({
               walletType,
+              walletAccount,
               walletIndex,
               hdMode,
               sender: walletAddress,
@@ -631,7 +633,8 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
               asset,
               amount,
               feeOption: selectedFeeOption,
-              memo: currentMemo
+              memo: currentMemo,
+              dex
             })
           )
           return true
@@ -643,12 +646,14 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       subscribeSendTxState,
       transfer$,
       walletType,
+      walletAccount,
       walletIndex,
       hdMode,
       walletAddress,
       asset,
       selectedFeeOption,
-      currentMemo
+      currentMemo,
+      dex
     ]
   )
   const submitDepositTx = useCallback(
@@ -660,6 +665,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
           subscribeDepositState(
             deposit$({
               walletType,
+              walletAccount,
               walletIndex,
               hdMode,
               sender: walletAddress,
@@ -679,6 +685,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       subscribeDepositState,
       deposit$,
       walletType,
+      walletAccount,
       walletIndex,
       hdMode,
       walletAddress,

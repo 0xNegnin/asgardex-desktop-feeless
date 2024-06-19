@@ -13,6 +13,7 @@ import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 import { useIntl } from 'react-intl'
 
+import { Dex } from '../../../../../shared/api/types'
 import { isKeystoreWallet, isLedgerWallet } from '../../../../../shared/utils/guard'
 import { WalletType } from '../../../../../shared/wallet/types'
 import { ZERO_BASE_AMOUNT } from '../../../../const'
@@ -61,11 +62,12 @@ export type Props = {
   network: Network
   poolDetails: PoolDetails
   oPoolAddress: O.Option<PoolAddress>
+  dex: Dex
 }
 
 export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
   const {
-    asset: { walletType, walletIndex, hdMode },
+    asset: { walletType, walletAccount, walletIndex, hdMode },
     poolDetails,
     balances,
     balance,
@@ -77,7 +79,8 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
     reloadFeesHandler,
     validatePassword$,
     network,
-    oPoolAddress
+    oPoolAddress,
+    dex
   } = props
 
   const intl = useIntl()
@@ -368,15 +371,29 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
     subscribeSendTxState(
       transfer$({
         walletType,
+        walletAccount,
         walletIndex,
         hdMode,
         recipient: form.getFieldValue('recipient'),
         asset,
         amount: amountToSend,
-        memo: currentMemo
+        memo: currentMemo,
+        dex
       })
     )
-  }, [subscribeSendTxState, transfer$, walletType, walletIndex, hdMode, form, asset, amountToSend, currentMemo])
+  }, [
+    subscribeSendTxState,
+    transfer$,
+    walletType,
+    walletAccount,
+    walletIndex,
+    hdMode,
+    form,
+    asset,
+    amountToSend,
+    currentMemo,
+    dex
+  ])
 
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
 

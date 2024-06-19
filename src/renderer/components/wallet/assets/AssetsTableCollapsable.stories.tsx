@@ -11,6 +11,7 @@ import * as A from 'fp-ts/Array'
 import * as FP from 'fp-ts/function'
 import * as O from 'fp-ts/Option'
 
+import { thorDetails } from '../../../../shared/api/types'
 import { getMockRDValueFactory, RDStatus } from '../../../../shared/mock/rdByStatus'
 import { AssetBTC, AssetETH, AssetLTC, AssetRuneNative, AssetMaya, AssetCacao } from '../../../../shared/utils/asset'
 import { EnabledChain, isEnabledChain } from '../../../../shared/utils/chain'
@@ -42,6 +43,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('1000000'),
           asset: AssetMaya,
           walletAddress: 'Maya wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         },
@@ -50,6 +52,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('300000000'),
           asset: AssetCacao,
           walletAddress: 'Maya wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         }
@@ -68,6 +71,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('1000000'),
           asset: AssetBTC,
           walletAddress: 'DOGE wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         }
@@ -86,6 +90,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('300000000'),
           asset: AssetETH,
           walletAddress: 'ETH wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         }
@@ -104,6 +109,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('1000000'),
           asset: AssetRuneNative,
           walletAddress: 'DOGE wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         }
@@ -122,6 +128,7 @@ const balances: Partial<Record<EnabledChain, ChainBalances>> = {
           amount: baseAmount('1000000'),
           asset: AssetLTC,
           walletAddress: 'LTC wallet address',
+          walletAccount: 0,
           walletIndex: 0,
           hdMode: 'default'
         }
@@ -185,7 +192,7 @@ const Template = (args: Partial<Record<EnabledChain, RDStatus>>) => {
       network={Network.Testnet}
       mimirHalt={RD.initial}
       hidePrivateData={false}
-      dex="THOR"
+      dex={thorDetails}
       mayaScanPrice={RD.initial}
     />
   )

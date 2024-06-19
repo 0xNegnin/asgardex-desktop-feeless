@@ -2,6 +2,7 @@ import { BSC_GAS_ASSET_DECIMAL } from '@xchainjs/xchain-bsc'
 import { ETH_GAS_ASSET_DECIMAL } from '@xchainjs/xchain-ethereum'
 import { assetAmount, assetToBase, baseAmount } from '@xchainjs/xchain-util'
 
+import { thorDetails } from '../../../../shared/api/types'
 import { AssetBSC, AssetETH } from '../../../../shared/utils/asset'
 import { AssetUSDCBSC, AssetUSDTERC20Testnet, ZERO_BASE_AMOUNT } from '../../../const'
 import { THORCHAIN_DECIMAL } from '../../../helpers/assetHelper'
@@ -16,19 +17,19 @@ import {
 describe('stake/Withdraw.helper', () => {
   describe('getWithdrawAmounts', () => {
     it('zero percentes', () => {
-      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 0, 'THOR')
+      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 0, thorDetails)
       expect(eqBaseAmount.equals(withdraws.rune, ZERO_BASE_AMOUNT)).toBeTruthy()
       expect(eqBaseAmount.equals(withdraws.asset, ZERO_BASE_AMOUNT)).toBeTruthy()
     })
 
     it('50 percentes', () => {
-      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 50, 'THOR')
+      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 50, thorDetails)
       expect(eqBaseAmount.equals(withdraws.rune, baseAmount(96505711))).toBeTruthy()
       expect(eqBaseAmount.equals(withdraws.asset, baseAmount(1601250))).toBeTruthy()
     })
 
     it('100 percentes', () => {
-      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 100, 'THOR')
+      const withdraws = getWithdrawAmounts(baseAmount('193011422'), baseAmount('3202499'), 100, thorDetails)
       expect(eqBaseAmount.equals(withdraws.rune, baseAmount(193011422))).toBeTruthy()
       expect(eqBaseAmount.equals(withdraws.asset, baseAmount(3202499))).toBeTruthy()
     })
@@ -47,7 +48,7 @@ describe('stake/Withdraw.helper', () => {
 
   describe('minAssetAmountToWithdrawMax1e8', () => {
     const poolsData = {
-      'BSC.USDC-0X8AC76A51CC950D9822D68B83FE1AD97B32CD580D': {
+      'BSC.USDC-0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d': {
         assetBalance: assetToBase(assetAmount(20)), // 1 BSDC = 0.05 RUNE
         dexBalance: assetToBase(assetAmount(1)) // 1 RUNE = 20 USDC
       },
@@ -87,7 +88,7 @@ describe('stake/Withdraw.helper', () => {
       expect(eqBaseAmount.equals(result, assetToBase(assetAmount(0.00045, withdrawAssetDecimal)))).toBeTruthy()
     })
 
-    it('witdhraw non chain asset (BSC.USDC)', () => {
+    it('withdraw non chain asset (BSC.USDC)', () => {
       const withdrawAssetDecimal = 8
       const params = {
         fees: {
