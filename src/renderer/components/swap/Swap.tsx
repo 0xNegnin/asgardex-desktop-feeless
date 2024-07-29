@@ -283,19 +283,20 @@ export const Swap = ({
   )
   // For normal quotes
   const [oQuote, setQuote] = useState<O.Option<TxDetails>>(O.none)
+
   // For maya quotes
   const [oQuoteMaya, setQuoteMaya] = useState<O.Option<QuoteSwap>>(O.none)
 
   // Default Streaming interval set to 1 blocks
-  const [streamingInterval, setStreamingInterval] = useState<number>(dex.chain === THORChain ? 1 : 0)
+  const [streamingInterval, setStreamingInterval] = useState<number>(dex.chain === THORChain ? 1 : 3)
   // Default Streaming quantity set to 0 network computes the optimum
   const [streamingQuantity, setStreamingQuantity] = useState<number>(0)
   // Slide use state
-  const [slider, setSlider] = useState<number>(dex.chain === THORChain ? 26 : 0)
+  const [slider, setSlider] = useState<number>(dex.chain === THORChain ? 26 : 76)
 
   const [oTargetWalletType, setTargetWalletType] = useState<O.Option<WalletType>>(oInitialTargetWalletType)
 
-  const [isStreaming, setIsStreaming] = useState<Boolean>(dex.chain === THORChain ? true : false)
+  const [isStreaming, setIsStreaming] = useState<Boolean>(true)
 
   // Update state needed - initial target walletAddress is loaded async and can be different at first run
   useEffect(() => {
@@ -879,6 +880,8 @@ export const Swap = ({
           const amount = new CryptoAmount(convertBaseAmountDecimal(amountToSwapMax1e8, sourceAssetDecimal), sourceAsset)
           const address = destinationAddress
           const fromAdd = sourceWalletAddress
+          const streamingInt = isStreaming ? streamingInterval : 0
+          const streaminQuant = isStreaming ? streamingQuantity : 0
           const toleranceBps = isStreaming ? 10000 : slipTolerance * 100 // convert to basis points
           return {
             fromAsset: fromAsset,
@@ -886,6 +889,8 @@ export const Swap = ({
             amount: amount,
             destinationAddress: address,
             fromAddress: fromAdd,
+            streamingInterval: streamingInt,
+            streamingQuantity: streaminQuant,
             toleranceBps: toleranceBps
             //affiliateAddress: ASGARDEX_THORNAME,
             //affiliateBps: applyBps
@@ -900,6 +905,8 @@ export const Swap = ({
       amountToSwapMax1e8,
       sourceAssetDecimal,
       isStreaming,
+      streamingInterval,
+      streamingQuantity,
       slipTolerance,
       applyBps
     ]
@@ -951,7 +958,9 @@ export const Swap = ({
             destinationAsset: targetAsset,
             fromAddress: sourceWalletAddress,
             amount: new CryptoAmount(convertBaseAmountDecimal(amountToSwapMax1e8, sourceAssetDecimal), sourceAsset),
-            toleranceBps: slipTolerance * 100
+            streamingInterval: isStreaming ? streamingInterval : 0,
+            streamingQuantity: isStreaming ? streamingQuantity : 0,
+            toleranceBps: isStreaming || network === Network.Stagenet ? 10000 : slipTolerance * 100 // convert to basis points,
             //affiliateAddress: ASGARDEX_THORNAME,
             //affiliateBps: applyBps
           }
@@ -1054,17 +1063,27 @@ export const Swap = ({
   }, [dex, oQuote, oQuoteMaya])
 
   // Quote slippage returned as a percent
-  const swapStreamingSlippage: number = useMemo(
-    () =>
-      FP.pipe(
-        oQuote,
-        O.fold(
-          () => 0, // default affiliate fee asset amount return as number not as BP
-          (txDetails) => txDetails.txEstimate.streamingSlipBasisPoints / 100
-        )
-      ),
-    [oQuote]
-  )
+  const swapStreamingSlippage: number = useMemo(() => {
+    // Handle each Option individually
+    const slipFromTxDetails = FP.pipe(
+      oQuote,
+      O.fold(
+        () => 0,
+        (txDetails) => txDetails.txEstimate.streamingSlipBasisPoints / 100
+      )
+    )
+    const slipFromQuoteSwap = FP.pipe(
+      oQuoteMaya,
+      O.fold(
+        () => 0,
+        (quoteSwap) => {
+          return quoteSwap.slipBasisPoints / 100
+        }
+      )
+    )
+    return dex.chain === THORChain ? slipFromTxDetails : slipFromQuoteSwap
+  }, [dex, oQuote, oQuoteMaya])
+
   // Quote expiry returned as a date
   const swapExpiry: Date = useMemo(() => {
     const swapExpiryThor = FP.pipe(
@@ -1101,24 +1120,14 @@ export const Swap = ({
       oQuoteMaya,
       O.fold(
         () => new CryptoAmount(baseAmount(0), targetAsset),
-        (quoteSwap) => quoteSwap.expectedAmount
+        (quoteSwap) => {
+          return quoteSwap.expectedAmount
+        }
       )
     )
     return dex.chain === THORChain ? swapResultAmountMaxThor : swapResultAmountMaxMaya
   }, [dex, oQuote, oQuoteMaya, targetAsset])
 
-  // Swap streaming result from thornode
-  const swapStreamingNetOutput: CryptoAmount = useMemo(
-    () =>
-      FP.pipe(
-        sequenceTOption(oQuote),
-        O.fold(
-          () => new CryptoAmount(baseAmount(0), targetAsset),
-          ([txDetails]) => txDetails.txEstimate.netOutputStreaming
-        )
-      ),
-    [oQuote, targetAsset]
-  )
   // Swap streaming result from thornode
   const maxStreamingQuantity: number = useMemo(
     () =>
@@ -1175,7 +1184,7 @@ export const Swap = ({
             ? PoolHelpers.getPoolPriceValue({
                 balance: {
                   asset: swapResultAmountMax.asset,
-                  amount: isStreaming ? swapStreamingNetOutput.baseAmount : swapResultAmountMax.baseAmount
+                  amount: swapResultAmountMax.baseAmount
                 },
                 poolDetails,
                 pricePool
@@ -1188,7 +1197,7 @@ export const Swap = ({
           getPoolPriceValueM({
             balance: {
               asset: swapResultAmountMax.asset,
-              amount: isStreaming ? swapStreamingNetOutput.baseAmount : swapResultAmountMax.baseAmount
+              amount: swapResultAmountMax.baseAmount
             },
             poolDetails,
             pricePool
@@ -1197,15 +1206,7 @@ export const Swap = ({
           O.getOrElse(() => baseAmount(0, THORCHAIN_DECIMAL)), // default decimal
           (amount) => ({ asset: pricePool.asset, amount })
         )
-  }, [
-    dex,
-    swapResultAmountMax.asset,
-    swapResultAmountMax.baseAmount,
-    isStreaming,
-    swapStreamingNetOutput.baseAmount,
-    poolDetails,
-    pricePool
-  ])
+  }, [dex, swapResultAmountMax.asset, swapResultAmountMax.baseAmount, poolDetails, pricePool])
 
   /**
    * Price sum of swap fees (IN + OUT) and affiliate
@@ -1732,10 +1733,10 @@ export const Swap = ({
 
   // Function to reset the slider to default position
   const resetToDefault = () => {
-    setStreamingInterval(dex.chain === THORChain ? 1 : 0) // Default position
-    setStreamingQuantity(0) // thornode decides the swap quantity
-    setSlider(dex.chain === THORChain ? 26 : 0)
-    setIsStreaming(dex.chain === THORChain ? true : false)
+    setStreamingInterval(dex.chain === THORChain ? 1 : 3) // Default position
+    setStreamingQuantity(0) // thornode | mayanode decides the swap quantity
+    setSlider(26)
+    setIsStreaming(true)
   }
   const quoteOnlyButton = () => {
     setQuoteOnly(!quoteOnly)
@@ -1760,11 +1761,8 @@ export const Swap = ({
       setIsStreaming(streamingIntervalValue !== 0)
     }
     const tipFormatter =
-      dex.chain === THORChain
-        ? slider === 0
-          ? 'Caution tx could be refunded'
-          : `${streamingIntervalValue} Block interval between swaps`
-        : `Mayachain does not support streaming yet`
+      slider === 0 ? 'Caution tx could be refunded' : `${streamingIntervalValue} Block interval between swaps`
+
     const labelMin = slider <= 0 ? `Limit Swap` : `` || slider < 50 ? 'Time Optimised' : `Price Optimised`
 
     return (
@@ -1779,12 +1777,10 @@ export const Swap = ({
           tipFormatter={() => `${tipFormatter} `}
           labels={[`${labelMin}`, `${streamingInterval}`]}
           tooltipPlacement={'top'}
-          error={dex.chain === 'MAYA'}
-          disabled={dex.chain === 'MAYA'}
         />
       </div>
     )
-  }, [dex, slider, streamingInterval])
+  }, [slider, streamingInterval])
 
   // Streaming Quantity slider
   const renderStreamerQuantity = useMemo(() => {
@@ -1796,12 +1792,12 @@ export const Swap = ({
     let toolTip: string
     if (streamingInterval === 0) {
       quantityLabel = [`Limit swap`]
-      toolTip = dex.chain === THORChain ? `No Streaming interval set` : `Mayachain does not support streaming yet`
+      toolTip = `No Streaming interval set`
     } else {
       quantityLabel = quantity === 0 ? [`Auto swap count`] : [`Sub swaps`, `${quantity}`]
       toolTip =
         quantity === 0
-          ? `Thornode decides the swap count`
+          ? `${dex.chain === THORChain ? 'Thornode' : 'Mayanode'} decides the swap count`
           : `` || quantity === maxStreamingQuantity
           ? `Max sub swaps ${maxStreamingQuantity}`
           : ''
@@ -1818,12 +1814,10 @@ export const Swap = ({
           included={false}
           labels={quantityLabel}
           tooltipPlacement={'top'}
-          error={dex.chain === 'MAYA'}
-          disabled={dex.chain === 'MAYA'}
         />
       </div>
     )
-  }, [streamingQuantity, streamingInterval, maxStreamingQuantity, dex])
+  }, [streamingQuantity, streamingInterval, maxStreamingQuantity, dex.chain])
 
   // swap expiry progress bar
   useEffect(() => {
@@ -1959,23 +1953,13 @@ export const Swap = ({
         source={{ asset: sourceAsset, amount: amountToSwapMax1e8 }}
         target={{
           asset: targetAsset,
-          amount: isStreaming ? swapStreamingNetOutput.baseAmount : swapResultAmountMax.baseAmount
+          amount: swapResultAmountMax.baseAmount
         }}
         stepDescription={stepLabel}
         network={network}
       />
     )
-  }, [
-    swapState,
-    sourceAsset,
-    amountToSwapMax1e8,
-    targetAsset,
-    isStreaming,
-    swapStreamingNetOutput.baseAmount,
-    swapResultAmountMax.baseAmount,
-    network,
-    intl
-  ])
+  }, [swapState, sourceAsset, amountToSwapMax1e8, targetAsset, swapResultAmountMax.baseAmount, network, intl])
   // assuming on a unsucessful tx that the swap state should remain the same
   const onCloseTxModal = useCallback(() => {
     resetSwapState()
@@ -2177,9 +2161,8 @@ export const Swap = ({
     if (lockedWallet || quoteOnly) {
       return <></>
     }
-
     const error = quoteErrors[0].split(':')
-    const assetPart = error[2].split('(')[1]?.split(')')[0]
+    const assetPart = error.length === 3 ? error[2].split('(')[1]?.split(')')[0] : undefined
     if (!lockedWallet && assetPart === `${targetAsset.chain}.${targetAsset.symbol}`) {
       return <ErrorLabel>{intl.formatMessage({ id: 'swap.errors.pool.notAvailable' }, { pool: assetPart })}</ErrorLabel>
     }
@@ -2796,7 +2779,7 @@ export const Swap = ({
             title={intl.formatMessage({ id: 'swap.output' })}
             // Show swap result <= 1e8
             amount={{
-              amount: isStreaming ? swapStreamingNetOutput.baseAmount : swapResultAmountMax.baseAmount,
+              amount: swapResultAmountMax.baseAmount,
               asset: targetAsset
             }}
             priceAmount={priceSwapResultAmountMax1e8}
