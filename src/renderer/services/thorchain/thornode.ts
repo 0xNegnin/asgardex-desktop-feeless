@@ -27,7 +27,7 @@ import * as Rx from 'rxjs'
 import * as RxOp from 'rxjs/operators'
 
 import { AssetRuneNative } from '../../../shared/utils/asset'
-import { isEnabledChain } from '../../../shared/utils/chain'
+import { isSupportedChain } from '../../../shared/utils/chain'
 import { WalletType } from '../../../shared/wallet/types'
 import { ZERO_BASE_AMOUNT } from '../../const'
 import { THORCHAIN_DECIMAL } from '../../helpers/assetHelper'
@@ -52,7 +52,8 @@ import {
   InboundAddresses,
   InboundAddress,
   TxStagesLD,
-  TxStages
+  TxStages,
+  NodeStatusEnum
 } from './types'
 
 const height: number | undefined = undefined
@@ -111,7 +112,7 @@ export const createThornodeService$ = (network$: Network$, clientUrl$: ClientUrl
               A.filterMap(({ chain, address, ...rest }) =>
                 // validate chain
                 chain !== undefined &&
-                isEnabledChain(chain) &&
+                isSupportedChain(chain) &&
                 // address is required
                 !!address
                   ? O.some({ chain, address, ...rest })
@@ -285,7 +286,7 @@ export const createThornodeService$ = (network$: Network$, clientUrl$: ClientUrl
           address: node_address,
           bond: baseAmount(total_bond, THORCHAIN_DECIMAL),
           award: baseAmount(current_award, THORCHAIN_DECIMAL),
-          status,
+          status: status as NodeStatusEnum,
           bondProviders: {
             nodeOperatorFee: baseAmount(bond_providers.node_operator_fee, THORCHAIN_DECIMAL),
             providers: Array.isArray(bond_providers.providers)

@@ -23,13 +23,13 @@ import * as O from 'fp-ts/Option'
 import * as Rx from 'rxjs'
 import * as RxOp from 'rxjs/operators'
 
-import { isEnabledChain } from '../../../shared/utils/chain'
+import { isSupportedChain } from '../../../shared/utils/chain'
 import { ZERO_BASE_AMOUNT } from '../../const'
 import { sequenceTOption } from '../../helpers/fpHelpers'
 import { LiveData, liveData } from '../../helpers/rx/liveData'
 import { triggerStream } from '../../helpers/stateHelper'
 import { Network$ } from '../app/types'
-import { LiquidityProvidersLD, LiquidityProvider as LiquidityProviderMaya } from '../thorchain/types'
+import { LiquidityProvidersLD, LiquidityProvider as LiquidityProviderMaya, NodeStatusEnum } from '../thorchain/types'
 import {
   Mimir,
   MimirLD,
@@ -99,7 +99,7 @@ export const createMayanodeService$ = (network$: Network$, clientUrl$: ClientUrl
               A.filterMap(({ chain, address, ...rest }) =>
                 // validate chain
                 chain !== undefined &&
-                isEnabledChain(chain) &&
+                isSupportedChain(chain) &&
                 // address is required
                 !!address
                   ? O.some({ chain, address, ...rest })
@@ -213,7 +213,7 @@ export const createMayanodeService$ = (network$: Network$, clientUrl$: ClientUrl
             address: node_address,
             bond: baseAmount(bond, CACAO_DECIMAL),
             award: baseAmount(reward, CACAO_DECIMAL),
-            status,
+            status: status as NodeStatusEnum,
             bondProviders: {
               nodeOperatorFee: baseAmount(bond_providers.node_operator_fee, CACAO_DECIMAL),
               providers: Array.isArray(bond_providers.providers)
