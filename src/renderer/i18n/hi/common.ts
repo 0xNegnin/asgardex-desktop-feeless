@@ -39,8 +39,8 @@ const common: CommonMessages = {
   'common.general': 'सामान्य',
   'common.advanced': 'उन्नत',
   'common.privateData': 'निजी डेटा',
-  'common.enable': 'सक्षम करें {chain}',
-  'common.disable': 'अक्षम करें {chain}',
+  'common.enable': '{chain} सक्षम',
+  'common.disable': '{chain} अक्षम',
   'common.disabledChains': 'अक्षम चेन',
   'common.chainDisabled': 'आपने {chain} श्रृंखला को अक्षम कर दिया है, कृपया स्वैप जारी रखने के लिए इसे सक्षम करें',
   'common.remove': 'हटाएँ',
@@ -107,6 +107,11 @@ const common: CommonMessages = {
   'common.completeLp': 'सामान्य Lp पूरा करें',
   'common.swap': 'स्वैप',
   'common.savers': 'बचत',
+  'common.lending': 'ऋण',
+  'common.borrow': 'उधार लेना',
+  'common.repay': 'वापस करना',
+  'common.collateral': 'बंधक',
+  'common.debt': 'ऋण',
   'common.earn': 'कमाई',
   'common.liquidity': 'तरलता',
   'common.withdraw': 'निकासी',
@@ -176,6 +181,7 @@ const common: CommonMessages = {
   'common.legacy': 'पुराना',
   'common.ledgerlive': 'लेजर लाइव',
   'common.metamask': 'मेटामास्क',
-  'common.unknown': 'अज्ञात'
+  'common.unknown': 'अज्ञात',
+  'common.featureUnderDevelopment': 'विकासाधीन सुविधा, उपयोग न करें'
 }
 export default common

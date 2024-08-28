@@ -1,6 +1,19 @@
+# 1.22.2 (2024-08-28)
+
+## Updates/Fixes
+
+- Update whitelists for evm [#325](https://github.com/asgardex/asgardex-desktop/pull/326)
+- Update Arb consts
+- Update bonding tools [#327] (https://github.com/asgardex/asgardex-desktop/pull/330)
+
+## Add
+
+- Lending UI [#10] (https://github.com/asgardex/asgardex-desktop/pull/286)
+
 # 1.22.1 (2024-08-15)
 
 ## Updates/Fixes
+
 - Bond tools update [#309](https://github.com/asgardex/asgardex-desktop/pull/315)
 - Mayachain synth warning [#311](https://github.com/asgardex/asgardex-desktop/pull/315)
 
