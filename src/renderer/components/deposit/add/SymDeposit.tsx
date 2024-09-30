@@ -8,22 +8,22 @@ import { AVAXChain } from '@xchainjs/xchain-avax'
 import { BSCChain } from '@xchainjs/xchain-bsc'
 import { Network } from '@xchainjs/xchain-client'
 import { ETHChain } from '@xchainjs/xchain-ethereum'
-import { isAssetRuneNative, THORChain } from '@xchainjs/xchain-thorchain'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import {
   Address,
-  Asset,
+  AnyAsset,
   baseAmount,
   BaseAmount,
   baseToAsset,
   CryptoAmount,
-  formatAssetAmountCurrency
+  formatAssetAmountCurrency,
+  TokenAsset
 } from '@xchainjs/xchain-util'
 import BigNumber from 'bignumber.js'
 import * as A from 'fp-ts/lib/Array'
 import * as FP from 'fp-ts/lib/function'
 import * as NEA from 'fp-ts/lib/NonEmptyArray'
 import * as O from 'fp-ts/lib/Option'
-import * as P from 'fp-ts/Predicate'
 import { useObservableState } from 'observable-hooks'
 import { useIntl } from 'react-intl'
 import * as RxOp from 'rxjs/operators'
@@ -47,16 +47,14 @@ import {
   isAvaxTokenAsset,
   isBscAsset,
   isBscTokenAsset,
-  isCacaoAsset,
   isChainAsset,
   isEthAsset,
   isEthTokenAsset,
-  isRuneNativeAsset,
   isUSDAsset,
   max1e8BaseAmount,
   to1e8BaseAmount
 } from '../../../helpers/assetHelper'
-import { getChainAsset, isAvaxChain, isBscChain, isEthChain } from '../../../helpers/chainHelper'
+import { getChainAsset, isArbChain, isAvaxChain, isBscChain, isEthChain } from '../../../helpers/chainHelper'
 import { isEvmChain, isEvmToken } from '../../../helpers/evmHelper'
 import { unionAssets } from '../../../helpers/fp/array'
 import { eqBaseAmount, eqOAsset, eqOApproveParams, eqAsset } from '../../../helpers/fp/eq'
@@ -117,7 +115,7 @@ import { WalletPasswordConfirmationModal } from '../../modal/confirmation'
 import { TxModal } from '../../modal/tx'
 import { DepositAssets } from '../../modal/tx/extra'
 import { DepositAsset } from '../../modal/tx/extra/DepositAsset'
-import { LoadingView } from '../../shared/loading'
+import { LoadingView, Spin } from '../../shared/loading'
 import { Alert } from '../../uielements/alert'
 import { AssetIcon } from '../../uielements/assets/assetIcon'
 import { AssetInput } from '../../uielements/assets/assetInput'
@@ -136,7 +134,7 @@ import { PendingAssetsWarning } from './PendingAssetsWarning'
 
 export type Props = {
   asset: AssetWithDecimal
-  availableAssets: Asset[]
+  availableAssets: AnyAsset[]
   walletBalances: Pick<BalancesState, 'balances' | 'loading'>
   poolAddress: O.Option<PoolAddress>
   pricePool: PricePool
@@ -160,7 +158,7 @@ export type Props = {
     assetWalletType,
     runeWalletType
   }: {
-    asset: Asset
+    asset: AnyAsset
     assetWalletType: WalletType
     runeWalletType: WalletType
   }) => void
@@ -232,7 +230,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
   const dexAsset = dex.asset
   const dexAssetDecimal = dex.decimals
 
-  const prevAsset = useRef<O.Option<Asset>>(O.none)
+  const prevAsset = useRef<O.Option<AnyAsset>>(O.none)
 
   const isRuneLedger = isLedgerWallet(runeWalletType)
 
@@ -258,8 +256,8 @@ export const SymDeposit: React.FC<Props> = (props) => {
     A.map(({ asset }) => asset),
     // Merge duplications
     (assets) => unionAssets(assets)(assets),
-    // Filter RUNE | CACAO out - not selectable on asset side
-    A.filter(P.not(dex.chain === THORChain ? isRuneNativeAsset : isCacaoAsset))
+    // Filter out assets that are not dexAsset
+    A.filter((currentAsset) => currentAsset !== dexAsset)
   )
 
   // can be Rune or cacao depending on dex selected
@@ -448,13 +446,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
     // ERC20 token does need approval only
     switch (chain) {
       case ETHChain:
-        return isEthAsset(asset) ? O.some(false) : O.some(isEthTokenAsset(asset))
+        return isEthAsset(asset) ? O.some(false) : O.some(isEthTokenAsset(asset as TokenAsset))
       case AVAXChain:
-        return isAvaxAsset(asset) ? O.some(false) : O.some(isAvaxTokenAsset(asset))
+        return isAvaxAsset(asset) ? O.some(false) : O.some(isAvaxTokenAsset(asset as TokenAsset))
       case BSCChain:
-        return isBscAsset(asset) ? O.some(false) : O.some(isBscTokenAsset(asset))
+        return isBscAsset(asset) ? O.some(false) : O.some(isBscTokenAsset(asset as TokenAsset))
       case ARBChain:
-        return isAethAsset(asset) ? O.some(false) : O.some(isArbTokenAsset(asset))
+        return isAethAsset(asset) ? O.some(false) : O.some(isArbTokenAsset(asset as TokenAsset))
       default:
         return O.none
     }
@@ -469,13 +467,13 @@ export const SymDeposit: React.FC<Props> = (props) => {
     const oTokenAddress: O.Option<string> = (() => {
       switch (chain) {
         case ETHChain:
-          return getEthTokenAddress(asset)
+          return getEthTokenAddress(asset as TokenAsset)
         case AVAXChain:
-          return getAvaxTokenAddress(asset)
+          return getAvaxTokenAddress(asset as TokenAsset)
         case BSCChain:
-          return getBscTokenAddress(asset)
+          return getBscTokenAddress(asset as TokenAsset)
         case ARBChain:
-          return getArbTokenAddress(asset)
+          return getArbTokenAddress(asset as TokenAsset)
         default:
           return O.none
       }
@@ -623,7 +621,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
             const price = FP.pipe(
               oPriceRuneInFee,
               O.map(({ amount, asset: priceAsset }) =>
-                isRuneNativeAsset(priceAsset) || isCacaoAsset(priceAsset)
+                dexAsset === priceAsset
                   ? emptyString
                   : formatAssetAmountCurrency({
                       amount: baseToAsset(amount),
@@ -686,7 +684,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
             const price = FP.pipe(
               oPriceRuneOutFee,
               O.map(({ amount, asset: priceAsset }) =>
-                isRuneNativeAsset(priceAsset)
+                dexAsset === priceAsset
                   ? emptyString
                   : formatAssetAmountCurrency({
                       amount: baseToAsset(amount),
@@ -918,23 +916,23 @@ export const SymDeposit: React.FC<Props> = (props) => {
       FP.pipe(
         sequenceTOption(oDepositParams, oFailedAssetAmount),
         O.map(([params, { asset, amount1e8 }]) => {
-          setFailedWalletType(isRuneNativeAsset(asset) ? params.runeWalletType : params.assetWalletType)
+          setFailedWalletType(dexAsset === asset ? params.runeWalletType : params.assetWalletType)
           const result = {
             poolAddress: params.poolAddress,
             asset: asset,
-            amount: isRuneNativeAsset(asset) ? amount1e8 : convertBaseAmountDecimal(amount1e8, assetDecimal),
-            memo: isRuneNativeAsset(asset) ? params.memos.rune : params.memos.asset,
-            walletType: isRuneNativeAsset(asset) ? params.runeWalletType : params.assetWalletType,
-            sender: isRuneNativeAsset(asset) ? params.runeSender : params.assetSender,
-            walletAccount: isRuneNativeAsset(asset) ? params.runeWalletAccount : params.assetWalletAccount,
-            walletIndex: isRuneNativeAsset(asset) ? params.runeWalletIndex : params.assetWalletIndex,
-            hdMode: isRuneNativeAsset(asset) ? params.runeHDMode : params.assetHDMode,
+            amount: dexAsset === asset ? amount1e8 : convertBaseAmountDecimal(amount1e8, assetDecimal),
+            memo: dexAsset === asset ? params.memos.rune : params.memos.asset,
+            walletType: dexAsset === asset ? params.runeWalletType : params.assetWalletType,
+            sender: dexAsset === asset ? params.runeSender : params.assetSender,
+            walletAccount: dexAsset === asset ? params.runeWalletAccount : params.assetWalletAccount,
+            walletIndex: dexAsset === asset ? params.runeWalletIndex : params.assetWalletIndex,
+            hdMode: dexAsset === asset ? params.runeHDMode : params.assetHDMode,
             dex
           }
           return result
         })
       ),
-    [oDepositParams, oFailedAssetAmount, assetDecimal, dex]
+    [oDepositParams, oFailedAssetAmount, dexAsset, assetDecimal, dex]
   )
 
   const reloadFeesHandler = useCallback(() => {
@@ -1342,7 +1340,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
   )
 
   const onChangeAssetHandler = useCallback(
-    (asset: Asset) => {
+    (asset: AnyAsset) => {
       onChangeAsset({ asset, assetWalletType, runeWalletType })
     },
     [assetWalletType, onChangeAsset, runeWalletType]
@@ -1371,7 +1369,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
   }
 
   const renderFeeError = useCallback(
-    (fee: BaseAmount, amount: BaseAmount, asset: Asset) => {
+    (fee: BaseAmount, amount: BaseAmount, asset: AnyAsset) => {
       const msg = intl.formatMessage(
         { id: 'deposit.add.error.chainFeeNotCovered' },
         {
@@ -1659,7 +1657,9 @@ export const SymDeposit: React.FC<Props> = (props) => {
       // `0x` needs to be removed from tx hash in case of ETH
       // @see https://github.com/thorchain/asgardex-electron/issues/1787#issuecomment-931934508
       O.map((txHash) =>
-        isEthChain(chain) || isAvaxChain(chain) || isBscChain(chain) ? txHash.replace(/0x/i, '') : txHash
+        isEthChain(chain) || isAvaxChain(chain) || isBscChain(chain) || isArbChain(chain)
+          ? txHash.replace(/0x/i, '')
+          : txHash
       )
     )
 
@@ -1674,11 +1674,8 @@ export const SymDeposit: React.FC<Props> = (props) => {
         extraResult={
           <ViewTxButton
             txHash={oTxHash}
-            onClick={isRuneNativeAsset(source.asset) ? openRuneExplorerTxUrl : openAssetExplorerTxUrl}
-            txUrl={FP.pipe(
-              oTxHash,
-              O.chain(isRuneNativeAsset(source.asset) ? getRuneExplorerTxUrl : getAssetExplorerTxUrl)
-            )}
+            onClick={dexAsset === source.asset ? openRuneExplorerTxUrl : openAssetExplorerTxUrl}
+            txUrl={FP.pipe(oTxHash, O.chain(dexAsset === source.asset ? getRuneExplorerTxUrl : getAssetExplorerTxUrl))}
             label={intl.formatMessage({ id: 'common.tx.view' }, { assetTicker: asset.ticker })}
           />
         }
@@ -1691,14 +1688,14 @@ export const SymDeposit: React.FC<Props> = (props) => {
     onCloseTxModal,
     onFinishTxModal,
     depositStartTime,
+    dexAsset,
+    asset,
     openRuneExplorerTxUrl,
     openAssetExplorerTxUrl,
     getRuneExplorerTxUrl,
     getAssetExplorerTxUrl,
     intl,
-    asset.ticker,
     txModalExtraContentAsym,
-    dexAsset,
     chain
   ])
 
@@ -1900,7 +1897,8 @@ export const SymDeposit: React.FC<Props> = (props) => {
 
   const renderPendingAssets = useMemo(() => {
     const render = (pendingAssets: PendingAssets, missingAssets: FailedAssets, loading: boolean) =>
-      pendingAssets.length && (
+      pendingAssets &&
+      pendingAssets.length > 0 && (
         <PendingAssetsWarning
           className="m-0 w-full xl:mr-20px"
           network={network}
@@ -1915,16 +1913,21 @@ export const SymDeposit: React.FC<Props> = (props) => {
       RD.fold(
         () => <></>,
         () => render(prevPendingAssets.current, prevPendingAssets.current, true),
-        () => <></>,
+        () => (
+          <>
+            <Spin />
+          </>
+        ),
         (pendingAssets) => {
           prevPendingAssets.current = pendingAssets
           const missingAssets: AssetsWithAmount1e8 = pendingAssets.map((assetWB): AssetWithAmount1e8 => {
-            const amount = !isAssetRuneNative(assetWB.asset)
-              ? Helper.getRuneAmountToDeposit(assetWB.amount1e8, poolData)
-              : Helper.getAssetAmountToDeposit({ runeAmount: assetWB.amount1e8, poolData, assetDecimal })
+            const amount =
+              dexAsset !== assetWB.asset
+                ? Helper.getRuneAmountToDeposit(assetWB.amount1e8, poolData)
+                : Helper.getAssetAmountToDeposit({ runeAmount: assetWB.amount1e8, poolData, assetDecimal })
 
             const assetAmount: AssetWithAmount1e8 = {
-              asset: isAssetRuneNative(assetWB.asset) ? asset : AssetRuneNative,
+              asset: dexAsset === assetWB.asset ? asset : dexAsset,
               amount1e8: amount
             }
             setFailedAssetAmount(O.some(assetAmount))
@@ -1934,7 +1937,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
         }
       )
     )
-  }, [asset, assetDecimal, network, poolData, symPendingAssetsRD])
+  }, [asset, assetDecimal, dexAsset, network, poolData, symPendingAssetsRD])
 
   const prevHasAsymAssets = useRef<LiquidityProviderHasAsymAssets>({ dexAsset: false, asset: false })
 
@@ -2274,7 +2277,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
     }: {
       minAmount: BaseAmount
       minAmountInfo: string
-      asset: Asset
+      asset: AnyAsset
       isError: boolean
     }) => (
       <div className="flex w-full items-center pl-10px pt-5px">
@@ -2303,7 +2306,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
     () => (
       <div className="flex flex-col">
         <MaxBalanceButton
-          className="ml-10px mt-5px"
+          className="mt-5px"
           classNameButton="!text-gray2 dark:!text-gray2d"
           classNameIcon={
             // show warn icon if maxAmountToSwapMax <= 0
@@ -2352,7 +2355,7 @@ export const SymDeposit: React.FC<Props> = (props) => {
     () => (
       <div className="flex flex-col">
         <MaxBalanceButton
-          className="ml-10px mt-5px"
+          className="mt-5px"
           classNameButton="!text-gray2 dark:!text-gray2d"
           classNameIcon={
             // show warn icon if maxAmountToSwapMax <= 0

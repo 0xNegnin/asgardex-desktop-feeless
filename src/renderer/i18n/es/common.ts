@@ -69,6 +69,7 @@ const common: CommonMessages = {
   'common.settings': 'Ajustes',
   'common.asset': 'Activo',
   'common.assets': 'Activos',
+  'common.tradeAssets': 'Comerciar activos',
   'common.rune': 'RUNE',
   'common.pool': 'Fondo',
   'common.pool.inbound': 'Fondo entrada',
@@ -98,6 +99,7 @@ const common: CommonMessages = {
   'common.fee.affiliate': 'Afiliado',
   'common.max': 'Máx',
   'common.min': 'Mín',
+  'common.half': 'Mitad',
   'common.search': 'Buscar en',
   'common.searchAsset': 'Buscar Activo',
   'common.addAsset': '¿El token no aparece? Añadir manualmente',
@@ -136,7 +138,7 @@ const common: CommonMessages = {
   'common.tx.view': 'Ver transacción {assetTicker}',
   'common.modal.confirmTitle': 'Confirmar acción',
   'common.value': 'Valor',
-  'common.manage': 'Gestionar el PL',
+  'common.manage': 'Gestionar',
   'common.managePosition': 'Gestionar posición',
   'common.analytics': 'Analítica',
   'common.asset.base': 'Base',
@@ -145,6 +147,8 @@ const common: CommonMessages = {
   'common.rate': 'Tarifa',
   'common.tx.type.swap': 'Intercambiar',
   'common.tx.type.donate': 'Donar',
+  'common.tx.type.send': 'Enviar',
+  'common.tx.type.runePoolDeposit': 'Depósito en RunePool',
   'common.tx.type.refund': 'Reembolso',
   'common.tx.type.deposit': 'Depósito',
   'common.tx.type.withdraw': 'Retirar',
@@ -187,9 +191,9 @@ const common: CommonMessages = {
   'common.unknown': 'Desconocido',
   'common.featureUnderDevelopment': 'Función en desarrollo, no usar',
   'common.expandAll': 'Expandir todo',
-  'common.excludeSynth': 'Excluir Sintéticos',
   'common.completeLp': 'Completar Lp',
-  'common.asset.quickSelect': 'Selección Rápida L1'
+  'common.asset.quickSelect': 'Selección Rápida L1',
+  'common.asset.chooseAsset': 'Elige un activo'
 }
 
 export default common

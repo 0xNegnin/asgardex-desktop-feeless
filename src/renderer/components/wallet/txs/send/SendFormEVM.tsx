@@ -22,16 +22,17 @@ import { Form } from 'antd'
 import Tooltip from 'antd/es/tooltip'
 import { RadioChangeEvent } from 'antd/lib/radio'
 import BigNumber from 'bignumber.js'
+import * as A from 'fp-ts/lib/Array'
 import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/lib/Option'
 import { useIntl } from 'react-intl'
 
-import { Dex } from '../../../../../shared/api/types'
+import { Dex, TrustedAddress, TrustedAddresses } from '../../../../../shared/api/types'
 import { chainToString, isChainOfMaya } from '../../../../../shared/utils/chain'
 import { isKeystoreWallet, isLedgerWallet } from '../../../../../shared/utils/guard'
 import { WalletType } from '../../../../../shared/wallet/types'
 import { ZERO_BASE_AMOUNT, ZERO_BN } from '../../../../const'
-import { isAethAsset, isAvaxAsset, isBscAsset, isEthAsset, isUSDAsset } from '../../../../helpers/assetHelper'
+import { isUSDAsset } from '../../../../helpers/assetHelper'
 import { getChainAsset } from '../../../../helpers/chainHelper'
 import { isEvmChain, isEvmToken } from '../../../../helpers/evmHelper'
 import { sequenceTOption } from '../../../../helpers/fpHelpers'
@@ -80,6 +81,7 @@ export type FormValues = {
 
 export type Props = {
   asset: SelectedWalletAsset
+  trustedAddresses: TrustedAddresses | undefined
   balances: WalletBalances
   balance: WalletBalance
   transfer$: SendTxStateHandler
@@ -99,6 +101,7 @@ export type Props = {
 export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const {
     asset: { walletType, walletAccount, walletIndex, hdMode, walletAddress },
+    trustedAddresses,
     poolDetails,
     balances,
     balance,
@@ -127,7 +130,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const [selectedFeeOption, setSelectedFeeOption] = useState<FeeOption>(DEFAULT_FEE_OPTION)
 
   const [amountToSend, setAmountToSend] = useState<O.Option<BaseAmount>>(O.none)
-  const [sendAddress, setSendAddress] = useState<O.Option<Address>>(O.none)
+  const [recipientAddress, setRecipientAddress] = useState<O.Option<Address>>(O.none)
   const [poolDeposit, setPoolDeposit] = useState<boolean>(false)
 
   const [warningMessage, setWarningMessage] = useState<string>('')
@@ -162,7 +165,13 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
 
   const [currentMemo, setCurrentMemo] = useState<string>('')
   const [affiliateTracking, setAffiliateTracking] = useState<string>('')
-  const isChainAsset = isEthAsset(asset) || isAvaxAsset(asset) || isBscAsset(asset) || isAethAsset(asset)
+  const isChainAsset = getChainAsset(asset.chain) === asset
+
+  const oSavedAddresses: O.Option<TrustedAddress[]> = useMemo(
+    () =>
+      FP.pipe(O.fromNullable(trustedAddresses?.addresses), O.map(A.filter((address) => address.chain === asset.chain))),
+    [trustedAddresses, asset.chain]
+  )
 
   const handleMemo = useCallback(() => {
     let memoValue = form.getFieldValue('memo') as string
@@ -320,6 +329,47 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       }
     },
     [inboundAddress, routers, intl, asset.chain]
+  )
+
+  const handleSavedAddressSelect = useCallback(
+    (value: string) => {
+      form.setFieldsValue({ recipient: value })
+      setRecipientAddress(O.fromNullable(value))
+      if (value) {
+        const matched = FP.pipe(
+          oSavedAddresses,
+          O.map((addresses) => addresses.filter((address) => address.address.includes(value))),
+          O.chain(O.fromPredicate((filteredAddresses) => filteredAddresses.length > 0))
+        )
+        setMatchedAddresses(matched)
+      }
+      addressValidator(undefined, value).catch(() => {})
+    },
+    [addressValidator, form, oSavedAddresses]
+  )
+  const renderSavedAddressesDropdown = useMemo(
+    () =>
+      FP.pipe(
+        oSavedAddresses,
+        O.fold(
+          () => null,
+          (addresses) => (
+            <Form.Item label={intl.formatMessage({ id: 'common.savedAddresses' })} className="mb-20px">
+              <Styled.CustomSelect
+                placeholder={intl.formatMessage({ id: 'common.savedAddresses' })}
+                onChange={(value) => handleSavedAddressSelect(value as string)}
+                style={{ width: '100%' }}>
+                {addresses.map((address) => (
+                  <Styled.CustomSelect.Option key={address.address} value={address.address}>
+                    {address.name}: {address.address}
+                  </Styled.CustomSelect.Option>
+                ))}
+              </Styled.CustomSelect>
+            </Form.Item>
+          )
+        )
+      ),
+    [oSavedAddresses, intl, handleSavedAddressSelect]
   )
 
   // max amount for eth
@@ -565,26 +615,34 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
         return routerAddress === address
       } // If Some, compare the address
     )(routerOption)
-
+  const [matchedAddresses, setMatchedAddresses] = useState<O.Option<TrustedAddress[]>>(O.none)
   const onChangeAddress = useCallback(
     async ({ target }: React.ChangeEvent<HTMLInputElement>) => {
       const address = target.value
+      if (address) {
+        const matched = FP.pipe(
+          oSavedAddresses,
+          O.map((addresses) => addresses.filter((address) => address.address.includes(address.address))),
+          O.chain(O.fromPredicate((filteredAddresses) => filteredAddresses.length > 0)) // Use O.none for empty arrays
+        )
+        setMatchedAddresses(matched)
+      }
       // we have to validate input before storing into the state
       const isNotAllowed = checkAddress(routers.MAYA, address) || (checkAddress(routers.THOR, address) && !isChainAsset)
       setNotAllowed(isNotAllowed)
       addressValidator(undefined, address)
         .then(() => {
-          setSendAddress(O.some(address))
+          setRecipientAddress(O.some(address))
           setNotAllowed(isNotAllowed)
         })
-        .catch(() => setSendAddress(O.none))
+        .catch(() => setRecipientAddress(O.none))
     },
-    [addressValidator, isChainAsset, routers.MAYA, routers.THOR]
+    [addressValidator, isChainAsset, oSavedAddresses, routers.MAYA, routers.THOR, setRecipientAddress]
   )
 
   const reloadFees = useCallback(() => {
     const result = FP.pipe(
-      sequenceTOption(amountToSend, sendAddress),
+      sequenceTOption(amountToSend, recipientAddress),
       O.map(([amount, recipient]) => {
         reloadFeesHandler({ amount, recipient, asset, memo: currentMemo, from: walletAddress })
         return true
@@ -593,11 +651,11 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     )
 
     return result
-  }, [amountToSend, sendAddress, reloadFeesHandler, asset, currentMemo, walletAddress])
+  }, [amountToSend, recipientAddress, reloadFeesHandler, asset, currentMemo, walletAddress])
   const [showMemo, setShowMemo] = useState(false)
 
   // only render memo field for chain asset.
-  const renderMemo = useMemo(() => {
+  const renderMemo = () => {
     return (
       <>
         <Styled.CustomLabel size="big">{intl.formatMessage({ id: 'common.memo' })}</Styled.CustomLabel>
@@ -606,7 +664,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
         </Form.Item>
       </>
     )
-  }, [handleMemo, intl, isLoading, reloadFees])
+  }
 
   // Send tx start time
   const [sendTxStartTime, setSendTxStartTime] = useState<number>(0)
@@ -619,7 +677,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   const submitSendTx = useCallback(
     () =>
       FP.pipe(
-        sequenceTOption(amountToSend, sendAddress),
+        sequenceTOption(amountToSend, recipientAddress),
         O.map(([amount, recipient]) => {
           setSendTxStartTime(Date.now())
           subscribeSendTxState(
@@ -642,7 +700,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
       ),
     [
       amountToSend,
-      sendAddress,
+      recipientAddress,
       subscribeSendTxState,
       transfer$,
       walletType,
@@ -832,7 +890,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
   useEffect(() => {
     if (RD.isFailure(uiFeesRD)) {
       // Perform the side effect when there is an error
-      setSendAddress(O.none)
+      setRecipientAddress(O.none)
       setAmountToSend(O.none)
       reloadFees()
     }
@@ -863,17 +921,23 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
     )
   }, [amountToSend, feeOptionsLabel, feesAvailable, isLoading, selectedFeeOption])
 
-  const [recipientAddress, setRecipientAddress] = useState<Address>('')
   const handleOnKeyUp = useCallback(() => {
     setRecipientAddress(form.getFieldValue('recipient'))
   }, [form])
 
-  const oMatchedWalletType: O.Option<WalletType> = useMemo(
-    () => H.matchedWalletType(balances, recipientAddress),
-    [balances, recipientAddress]
-  )
+  const oMatchedWalletType: O.Option<WalletType> = useMemo(() => {
+    const recipientAddressValue = FP.pipe(
+      recipientAddress,
+      O.getOrElse(() => '')
+    )
 
-  const renderWalletType = useMemo(() => H.renderedWalletType(oMatchedWalletType), [oMatchedWalletType])
+    return H.matchedWalletType(balances, recipientAddressValue)
+  }, [balances, recipientAddress])
+
+  const renderWalletType = useMemo(
+    () => H.renderedWalletType(oMatchedWalletType, matchedAddresses),
+    [matchedAddresses, oMatchedWalletType]
+  )
 
   return (
     <>
@@ -890,6 +954,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
           onFinish={() => setShowConfirmationModal(true)}
           labelCol={{ span: 24 }}>
           <Styled.SubForm>
+            {renderSavedAddressesDropdown}
             <Styled.CustomLabel size="big">
               {intl.formatMessage({ id: 'common.address' })}
               {renderWalletType}
@@ -944,7 +1009,7 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
                     <div className="pl-4 text-text2 dark:text-text2d">{`Transfer token ${asset.ticker}`}</div>
                   )}
                 </div>
-                {isChainAsset && renderMemo}
+                {isChainAsset && renderMemo()} {/* Call the renderMemo function */}
               </div>
             )}
           </Styled.SubForm>
@@ -975,7 +1040,10 @@ export const SendFormEVM: React.FC<Props> = (props): JSX.Element => {
             {showDetails && (
               <>
                 <ShowDetails
-                  recipient={recipientAddress}
+                  recipient={FP.pipe(
+                    recipientAddress,
+                    O.getOrElse(() => '')
+                  )}
                   amountLabel={amountLabel}
                   priceFeeLabel={priceFeeLabel}
                   currentMemo={currentMemo}

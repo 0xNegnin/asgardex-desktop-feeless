@@ -6,9 +6,11 @@ import { AssetCacao, MAYAChain } from '@xchainjs/xchain-mayachain'
 import { THORChain } from '@xchainjs/xchain-thorchain'
 import {
   Address,
+  AnyAsset,
   Asset,
   assetFromString,
   assetToString,
+  AssetType,
   BaseAmount,
   baseToAsset,
   Chain,
@@ -31,6 +33,7 @@ import { isKeystoreWallet } from '../../../../shared/utils/guard'
 import { DEFAULT_WALLET_TYPE, ZERO_BASE_AMOUNT } from '../../../const'
 import { isCacaoAsset, isMayaAsset, isRuneNativeAsset, isUSDAsset } from '../../../helpers/assetHelper'
 import { getChainAsset } from '../../../helpers/chainHelper'
+import { isEvmChain } from '../../../helpers/evmHelper'
 import { getDeepestPool, getPoolPriceValue } from '../../../helpers/poolHelper'
 import { getPoolPriceValue as getPoolPriceValueM } from '../../../helpers/poolHelperMaya'
 import { hiddenString, noDataString } from '../../../helpers/stringHelper'
@@ -56,6 +59,7 @@ import { AssetIcon } from '../../uielements/assets/assetIcon'
 import { FlatButton } from '../../uielements/button'
 import { Action as ActionButtonAction, ActionButton } from '../../uielements/button/ActionButton'
 import { ReloadButton } from '../../uielements/button/ReloadButton'
+import { InfoIcon } from '../../uielements/info'
 import { QRCodeModal } from '../../uielements/qrCodeModal/QRCodeModal'
 import * as Styled from './AssetsTableCollapsable.styles'
 
@@ -208,7 +212,7 @@ export const AssetsTableCollapsable: React.FC<Props> = (props): JSX.Element => {
         let price: string = noDataString // Default to "no data" string
 
         // Helper function to format price
-        const formatPrice = (priceOption: O.Option<BaseAmount>, pricePoolAsset: Asset) => {
+        const formatPrice = (priceOption: O.Option<BaseAmount>, pricePoolAsset: AnyAsset) => {
           if (O.isSome(priceOption)) {
             return formatAssetAmountCurrency({
               amount: baseToAsset(priceOption.value),
@@ -535,7 +539,10 @@ export const AssetsTableCollapsable: React.FC<Props> = (props): JSX.Element => {
 
             if (filterByValue) {
               sortedBalances = sortedBalances.filter(({ amount, asset }) => {
-                if ((isUSDAsset(asset) && !asset.synth && amount.amount().gt(1)) || isMayaAsset(asset)) {
+                if (
+                  (isUSDAsset(asset) && asset.type !== AssetType.SYNTH && amount.amount().gt(1)) ||
+                  isMayaAsset(asset)
+                ) {
                   return true
                 }
                 let usdValue: O.Option<BaseAmount>
@@ -551,7 +558,7 @@ export const AssetsTableCollapsable: React.FC<Props> = (props): JSX.Element => {
               })
             }
             if ((dex.chain === MAYAChain && chain === THORChain) || (dex.chain === THORChain && chain === MAYAChain)) {
-              sortedBalances = sortedBalances.filter(({ asset }) => !asset.synth)
+              sortedBalances = sortedBalances.filter(({ asset }) => asset.type !== AssetType.SYNTH)
             }
             previousAssetsTableData.current[index] = sortedBalances
             return renderAssetsTable({
@@ -613,9 +620,16 @@ export const AssetsTableCollapsable: React.FC<Props> = (props): JSX.Element => {
               </Styled.CopyLabelContainer>
             </Styled.HeaderAddress>
           </Col>
+
           <Col flex="0 1 auto" span={3} style={{ textAlign: 'right' }}>
             <Styled.HeaderLabel color={RD.isFailure(balancesRD) ? 'error' : 'gray'}>
-              {`${assetsTxt}`}
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                {isEvmChain(chain) && (
+                  // @asgardexTeam Add Locale for tooltip
+                  <InfoIcon tooltip={'Token not showing, add contract in wallet settings'} color="primary" />
+                )}
+                <span style={{ marginLeft: isEvmChain(chain) ? '5px' : '0' }}>{assetsTxt}</span>
+              </span>
             </Styled.HeaderLabel>
           </Col>
           <Col flex="0 0 12rem" span={1}>

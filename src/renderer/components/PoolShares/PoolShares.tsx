@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 
 import { Network } from '@xchainjs/xchain-client'
-import { Asset, baseAmount, baseToAsset, Chain, formatAssetAmountCurrency, formatBN } from '@xchainjs/xchain-util'
+import { AnyAsset, baseAmount, baseToAsset, Chain, formatAssetAmountCurrency, formatBN } from '@xchainjs/xchain-util'
 import { Grid, Row } from 'antd'
 import { ColumnsType, ColumnType } from 'antd/lib/table'
 import * as FP from 'fp-ts/lib/function'
@@ -19,7 +19,7 @@ import { PoolShareTableRowData, PoolShareTableData } from './PoolShares.types'
 export type Props = {
   data: PoolShareTableData
   loading: boolean
-  priceAsset: Asset | undefined
+  priceAsset: AnyAsset | undefined
   network: Network
   openShareInfo: FP.Lazy<void>
   haltedChains: Chain[]
@@ -150,6 +150,8 @@ export const PoolShares: React.FC<Props> = ({
           <Styled.ManageButton
             disabled={disablePool || type === 'asym'}
             asset={asset}
+            variant="manage"
+            useBorderButton={false}
             isTextView={isDesktopView}
             title={intl.formatMessage(
               { id: 'poolshares.single.notsupported' },

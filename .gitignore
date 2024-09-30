@@ -32,7 +32,7 @@ yarn-error.log*
 .env
 
 # don't need to share yarn.lock
-yarn.lock
+# yarn.lock
 
 dev-app-update.yml
 /.idea/

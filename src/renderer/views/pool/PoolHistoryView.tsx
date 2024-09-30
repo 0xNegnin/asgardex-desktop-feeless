@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 
 import * as RD from '@devexperts/remote-data-ts'
-import { Asset, assetToString } from '@xchainjs/xchain-util'
+import { AnyAsset, assetToString } from '@xchainjs/xchain-util'
 import * as O from 'fp-ts/lib/Option'
 
 import { PoolActionsHistory } from '../../components/poolActionsHistory'
@@ -13,12 +13,12 @@ import { useOpenExplorerTxUrl } from '../../hooks/useOpenExplorerTxUrl'
 import { PoolHistoryActions } from './PoolHistoryView.types'
 
 type Props = {
-  poolAsset: Asset
+  poolAsset: AnyAsset
   historyActions: PoolHistoryActions
   className?: string
 }
 
-const HISTORY_FILTERS: Filter[] = ['ALL', 'DEPOSIT', 'SWAP', 'WITHDRAW', 'DONATE', 'REFUND']
+const HISTORY_FILTERS: Filter[] = ['ALL', 'DEPOSIT', 'SEND', 'RUNEPOOLDEPOSIT', 'SWAP', 'WITHDRAW', 'DONATE', 'REFUND']
 
 export const PoolHistoryView: React.FC<Props> = ({ className, poolAsset, historyActions }) => {
   const { loadHistory, reloadHistory, requestParams, historyPage, prevHistoryPage, setFilter, setPage } = historyActions

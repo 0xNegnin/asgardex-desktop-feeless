@@ -2,37 +2,48 @@ import React, { useMemo } from 'react'
 
 import * as RD from '@devexperts/remote-data-ts'
 import { GAIAChain } from '@xchainjs/xchain-cosmos'
+import { KUJIChain } from '@xchainjs/xchain-kujira'
+import { MAYAChain } from '@xchainjs/xchain-mayachain'
+import { RadixChain } from '@xchainjs/xchain-radix'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import { Spin } from 'antd'
 import * as FP from 'fp-ts/lib/function'
 import * as O from 'fp-ts/Option'
 import { useObservableState } from 'observable-hooks'
 
-import { Dex } from '../../../../shared/api/types'
+import { Dex, TrustedAddresses } from '../../../../shared/api/types'
 import { SendFormCOSMOS } from '../../../components/wallet/txs/send'
 import { useChainContext } from '../../../contexts/ChainContext'
 import { useCosmosContext } from '../../../contexts/CosmosContext'
+import { useKujiContext } from '../../../contexts/KujiContext'
+import { useMayachainContext } from '../../../contexts/MayachainContext'
+import { useThorchainContext } from '../../../contexts/ThorchainContext'
 import { useWalletContext } from '../../../contexts/WalletContext'
+import { useXrdContext } from '../../../contexts/XrdContext'
 import { liveData } from '../../../helpers/rx/liveData'
-import { getWalletBalanceByAddress } from '../../../helpers/walletHelper'
+import { getWalletBalanceByAddressAndAsset } from '../../../helpers/walletHelper'
+import { useMayaScanPrice } from '../../../hooks/useMayascanPrice'
 import { useNetwork } from '../../../hooks/useNetwork'
 import { useOpenExplorerTxUrl } from '../../../hooks/useOpenExplorerTxUrl'
 import { useValidateAddress } from '../../../hooks/useValidateAddress'
 import { FeeRD } from '../../../services/chain/types'
-import { WalletBalances } from '../../../services/clients'
-import { PoolAddress, PoolDetails } from '../../../services/midgard/types'
+import { FeesLD, WalletBalances } from '../../../services/clients'
+import { PoolAddress, PoolDetails as PoolDetailsMaya } from '../../../services/mayaMigard/types'
 import { DEFAULT_BALANCES_FILTER, INITIAL_BALANCES_STATE } from '../../../services/wallet/const'
 import { SelectedWalletAsset, WalletBalance } from '../../../services/wallet/types'
 import * as Styled from '../Interact/InteractView.styles'
 
 type Props = {
   asset: SelectedWalletAsset
+  trustedAddresses: TrustedAddresses | undefined
   emptyBalance: WalletBalance
-  poolDetails: PoolDetails
+  poolDetails: PoolDetailsMaya
   oPoolAddress: O.Option<PoolAddress>
   dex: Dex
 }
+
 export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
-  const { asset, emptyBalance, poolDetails, oPoolAddress, dex } = props
+  const { asset, trustedAddresses, emptyBalance, poolDetails, dex, oPoolAddress } = props
 
   const { network } = useNetwork()
   const {
@@ -45,20 +56,55 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
     INITIAL_BALANCES_STATE
   )
 
-  const { openExplorerTxUrl, getExplorerTxUrl } = useOpenExplorerTxUrl(O.some(GAIAChain))
+  const { mayaScanPriceRD } = useMayaScanPrice()
+
+  const { openExplorerTxUrl, getExplorerTxUrl } = useOpenExplorerTxUrl(O.some(asset.asset.chain))
 
   const oWalletBalance = useMemo(
     () =>
       FP.pipe(
         oBalances,
-        O.chain((balances) => getWalletBalanceByAddress(balances, asset.walletAddress))
+        O.chain((balances) =>
+          getWalletBalanceByAddressAndAsset({ balances, address: asset.walletAddress, asset: asset.asset })
+        )
       ),
-    [asset.walletAddress, oBalances]
+    [asset, oBalances]
   )
 
   const { transfer$ } = useChainContext()
 
-  const { fees$, reloadFees } = useCosmosContext()
+  const kujiContext = useKujiContext()
+  const mayachainContext = useMayachainContext()
+  const gaiaContext = useCosmosContext()
+  const thorContext = useThorchainContext()
+  const xrdContext = useXrdContext()
+  let fees$: () => FeesLD
+  let reloadFees: () => void
+
+  switch (asset.asset.chain) {
+    case KUJIChain:
+      fees$ = kujiContext.fees$
+      reloadFees = kujiContext.reloadFees
+      break
+    case MAYAChain:
+      fees$ = mayachainContext.fees$
+      reloadFees = mayachainContext.reloadFees
+      break
+    case GAIAChain:
+      fees$ = gaiaContext.fees$
+      reloadFees = gaiaContext.reloadFees
+      break
+    case THORChain:
+      fees$ = thorContext.fees$
+      reloadFees = thorContext.reloadFees
+      break
+    case RadixChain:
+      fees$ = xrdContext.fees$
+      reloadFees = xrdContext.reloadFees
+      break
+    default:
+      throw new Error('Unsupported chain')
+  }
 
   const [feeRD] = useObservableState<FeeRD>(
     () =>
@@ -69,7 +115,7 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
     RD.initial
   )
 
-  const { validateAddress } = useValidateAddress(GAIAChain)
+  const { validateAddress } = useValidateAddress(asset.asset.chain)
 
   return FP.pipe(
     oWalletBalance,
@@ -79,6 +125,7 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
           <Styled.Container>
             <SendFormCOSMOS
               asset={asset}
+              trustedAddresses={trustedAddresses}
               balances={FP.pipe(
                 oBalances,
                 O.getOrElse<WalletBalances>(() => [])
@@ -93,6 +140,7 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
               validatePassword$={validatePassword$}
               network={network}
               poolDetails={poolDetails}
+              mayaScanPrice={mayaScanPriceRD}
               oPoolAddress={oPoolAddress}
               dex={dex}
             />
@@ -103,6 +151,7 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
         <Styled.Container>
           <SendFormCOSMOS
             asset={asset}
+            trustedAddresses={trustedAddresses}
             balances={FP.pipe(
               oBalances,
               O.getOrElse<WalletBalances>(() => [])
@@ -117,6 +166,7 @@ export const SendViewCOSMOS: React.FC<Props> = (props): JSX.Element => {
             validatePassword$={validatePassword$}
             network={network}
             poolDetails={poolDetails}
+            mayaScanPrice={mayaScanPriceRD}
             oPoolAddress={oPoolAddress}
             dex={dex}
           />
