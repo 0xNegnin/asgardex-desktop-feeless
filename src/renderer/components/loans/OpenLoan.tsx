@@ -34,7 +34,7 @@ import { useIntl } from 'react-intl'
 import * as RxOp from 'rxjs/operators'
 
 import { Dex } from '../../../shared/api/types'
-import { /*ASGARDEX_ADDRESS,*/ ASGARDEX_THORNAME } from '../../../shared/const'
+//import { ASGARDEX_ADDRESS, ASGARDEX_THORNAME } from '../../../shared/const'
 import { chainToString } from '../../../shared/utils/chain'
 import { isLedgerWallet } from '../../../shared/utils/guard'
 import { WalletType } from '../../../shared/wallet/types'
@@ -904,7 +904,7 @@ export const Borrow: React.FC<BorrowProps> = (props): JSX.Element => {
           poolAddress,
           asset: collateralAsset.asset,
           amount: convertBaseAmountDecimal(amountToLoanMax1e8, collateralAsset.decimal),
-          memo: loansQuote.memo !== '' ? loansQuote.memo.concat(`::${ASGARDEX_THORNAME}:0`) : '', // add tracking,
+          memo: loansQuote.memo, // remove tracking,
           walletType,
           sender: walletAddress,
           walletAccount,

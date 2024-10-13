@@ -65,11 +65,14 @@ const common: CommonMessages = {
   'common.test': 'Prueba',
   'common.change': 'Cambia',
   'common.wallet': 'Cartera',
+  'common.wallets': 'Carteras',
   'common.history': 'Historia',
   'common.settings': 'Ajustes',
   'common.asset': 'Activo',
   'common.assets': 'Activos',
   'common.tradeAssets': 'Comerciar activos',
+  'common.tradeAccount': 'Cuenta de trading',
+  'common.trade': 'Comercio',
   'common.rune': 'RUNE',
   'common.pool': 'Fondo',
   'common.pool.inbound': 'Fondo entrada',
@@ -118,10 +121,13 @@ const common: CommonMessages = {
   'common.collateral': 'Garantía',
   'common.debt': 'Deuda',
   'common.earn': 'Gane',
+  'common.earnings': 'Ganancias',
   'common.withdraw': 'Retirar',
   'common.liquidity': 'Liquidez',
   'common.approve': 'Aprobar',
   'common.accept': 'Acepte',
+  'common.allocationByType': 'Asignación por tipo',
+  'common.allocationByChain': 'Asignación por cadena',
   'common.approve.checking': 'Comprobación de la asignación para {asset}',
   'common.approve.error': 'Error al comprobar la asignación de {asset}: {error}',
   'common.step': 'Paso {current}/{total}',
@@ -193,7 +199,8 @@ const common: CommonMessages = {
   'common.expandAll': 'Expandir todo',
   'common.completeLp': 'Completar Lp',
   'common.asset.quickSelect': 'Selección Rápida L1',
-  'common.asset.chooseAsset': 'Elige un activo'
+  'common.asset.chooseAsset': 'Elige un activo',
+  'common.comingSoon': 'Próximamente'
 }
 
 export default common

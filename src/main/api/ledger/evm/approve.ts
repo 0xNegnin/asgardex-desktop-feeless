@@ -1,12 +1,13 @@
-import { FeeOption, TxHash } from '@xchainjs/xchain-client'
-import { ClientLedger } from '@xchainjs/xchain-evm'
+import TransportNodeHidSingleton from '@ledgerhq/hw-transport-node-hid-singleton'
+import { FeeOption, Network, TxHash } from '@xchainjs/xchain-client'
+import { ClientLedger, LedgerSigner } from '@xchainjs/xchain-evm'
 
 import { IPCLedgerApproveERC20TokenParams } from '../../../../shared/api/io'
 import { defaultArbParams } from '../../../../shared/arb/const'
 import { defaultAvaxParams } from '../../../../shared/avax/const'
 import { defaultBscParams } from '../../../../shared/bsc/const'
 import { defaultEthParams } from '../../../../shared/ethereum/const'
-import { getDerivationPaths } from '../../../../shared/evm/ledger'
+import { getDerivationPath, getDerivationPaths } from '../../../../shared/evm/ledger'
 
 export const approveLedgerERC20Token = async ({
   chain,
@@ -18,33 +19,53 @@ export const approveLedgerERC20Token = async ({
   hdMode
 }: IPCLedgerApproveERC20TokenParams): Promise<TxHash> => {
   let clientParams
-
+  const transport = await TransportNodeHidSingleton.create()
   switch (chain) {
     case 'ETH':
       clientParams = {
         ...defaultEthParams,
-        rootDerivationPaths: getDerivationPaths(walletAccount, walletIndex, hdMode),
+        signer: new LedgerSigner({
+          transport,
+          provider: defaultEthParams.providers[Network.Mainnet],
+          derivationPath: getDerivationPath(walletAccount, hdMode)
+        }),
+        rootDerivationPaths: getDerivationPaths(walletAccount, hdMode),
         network: network
       }
       break
     case 'ARB':
       clientParams = {
         ...defaultArbParams,
-        rootDerivationPaths: getDerivationPaths(walletAccount, walletIndex, hdMode),
+        signer: new LedgerSigner({
+          transport,
+          provider: defaultArbParams.providers[Network.Mainnet],
+          derivationPath: getDerivationPath(walletAccount, hdMode)
+        }),
+        rootDerivationPaths: getDerivationPaths(walletAccount, hdMode),
         network: network
       }
       break
     case 'AVAX':
       clientParams = {
         ...defaultAvaxParams,
-        rootDerivationPaths: getDerivationPaths(walletAccount, walletIndex, hdMode),
+        signer: new LedgerSigner({
+          transport,
+          provider: defaultAvaxParams.providers[Network.Mainnet],
+          derivationPath: getDerivationPath(walletAccount, hdMode)
+        }),
+        rootDerivationPaths: getDerivationPaths(walletAccount, hdMode),
         network: network
       }
       break
     case 'BSC':
       clientParams = {
         ...defaultBscParams,
-        rootDerivationPaths: getDerivationPaths(walletAccount, walletIndex, hdMode),
+        signer: new LedgerSigner({
+          transport,
+          provider: defaultBscParams.providers[Network.Mainnet],
+          derivationPath: getDerivationPath(walletAccount, hdMode)
+        }),
+        rootDerivationPaths: getDerivationPaths(walletAccount, hdMode),
         network: network
       }
       break

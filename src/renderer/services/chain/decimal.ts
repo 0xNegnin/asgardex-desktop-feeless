@@ -4,14 +4,17 @@ import { BTC_DECIMAL } from '@xchainjs/xchain-bitcoin'
 import { BCH_DECIMAL } from '@xchainjs/xchain-bitcoincash'
 import { BSC_GAS_ASSET_DECIMAL } from '@xchainjs/xchain-bsc'
 import { DASH_DECIMAL } from '@xchainjs/xchain-dash'
+import { ETH_GAS_ASSET_DECIMAL } from '@xchainjs/xchain-ethereum'
 import { CACAO_DECIMAL } from '@xchainjs/xchain-mayachain'
+import { EthChain } from '@xchainjs/xchain-mayachain-query'
 import { MidgardQuery } from '@xchainjs/xchain-midgard-query'
 import { XRD_DECIMAL } from '@xchainjs/xchain-radix'
-import { AssetRuneNative } from '@xchainjs/xchain-thorchain'
+import { THORChain } from '@xchainjs/xchain-thorchain'
 import { AnyAsset, AssetType } from '@xchainjs/xchain-util'
 import * as Rx from 'rxjs'
 import * as RxOp from 'rxjs/operators'
 
+import { Dex } from '../../../shared/api/types'
 import { THORCHAIN_DECIMAL } from '../../helpers/assetHelper'
 import {
   isArbChain,
@@ -28,8 +31,9 @@ import { KUJI_DECIMAL } from '../kuji/const'
 import { AssetWithDecimalLD } from './types'
 
 // gets asset decimal from midgard-query tobefixed
-const getDecimal = (asset: AnyAsset): Promise<number> => {
-  const { chain } = asset.type === AssetType.SYNTH ? AssetRuneNative : asset
+const getDecimal = (asset: AnyAsset, dex: Dex): Promise<number> => {
+  const { chain } =
+    asset.type === AssetType.SYNTH ? dex.asset : asset.type === AssetType.TRADE ? { chain: THORChain } : asset
 
   if (isArbChain(chain)) {
     return Promise.resolve(ARB_GAS_ASSET_DECIMAL)
@@ -60,14 +64,21 @@ const getDecimal = (asset: AnyAsset): Promise<number> => {
   if (isBchChain(chain)) {
     return Promise.resolve(BCH_DECIMAL)
   }
+  // Fix until Decimals for maya midgard is completed.
+  if (
+    asset.chain === EthChain &&
+    asset.symbol.toLowerCase() === String('PEPE-0x6982508145454Ce325dDbE47a25d4ec3d2311933').toLowerCase()
+  ) {
+    return Promise.resolve(ETH_GAS_ASSET_DECIMAL)
+  }
 
   const midgardQuery = new MidgardQuery()
 
   return Rx.from(midgardQuery.getDecimalForAsset(asset)).toPromise()
 }
 
-export const assetWithDecimal$ = (asset: AnyAsset): AssetWithDecimalLD =>
-  Rx.from(getDecimal(asset)).pipe(
+export const assetWithDecimal$ = (asset: AnyAsset, dex: Dex): AssetWithDecimalLD =>
+  Rx.from(getDecimal(asset, dex)).pipe(
     RxOp.map((decimal) =>
       RD.success({
         asset,
