@@ -4,7 +4,7 @@ import * as RD from '@devexperts/remote-data-ts'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline'
 import { Network } from '@xchainjs/xchain-client'
 import { PoolDetails } from '@xchainjs/xchain-mayamidgard'
-import { Address, baseAmount, CryptoAmount, eqAsset } from '@xchainjs/xchain-util'
+import { Address, AssetType, baseAmount, CryptoAmount, eqAsset } from '@xchainjs/xchain-util'
 import { formatAssetAmountCurrency, assetAmount, bn, assetToBase, BaseAmount, baseToAsset } from '@xchainjs/xchain-util'
 import { Form } from 'antd'
 import BigNumber from 'bignumber.js'
@@ -95,6 +95,7 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
   const intl = useIntl()
 
   const { asset } = balance
+  const chainAsset = getChainAsset(asset.type === AssetType.SYNTH ? dex.chain : asset.chain)
 
   const pricePoolThor = usePricePool()
   const pricePoolMaya = usePricePoolMaya()
@@ -116,7 +117,7 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
   const [feePriceValue, setFeePriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
   const [amountPriceValue, setAmountPriceValue] = useState<CryptoAmount>(new CryptoAmount(baseAmount(0), asset))
   const [recipientAddress, setRecipientAddress] = useState<Address>('')
-  const isChainAsset = asset.chain === getChainAsset(asset.chain).chain
+  const isChainAsset = asset === chainAsset
   const [warningMessage, setWarningMessage] = useState<string>('')
   const [form] = Form.useForm<FormValues>()
   const [showDetails, setShowDetails] = useState<boolean>(true)
@@ -126,8 +127,11 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
 
   const oSavedAddresses: O.Option<TrustedAddress[]> = useMemo(
     () =>
-      FP.pipe(O.fromNullable(trustedAddresses?.addresses), O.map(A.filter((address) => address.chain === asset.chain))),
-    [trustedAddresses, asset.chain]
+      FP.pipe(
+        O.fromNullable(trustedAddresses?.addresses),
+        O.map(A.filter((address) => address.chain === chainAsset.chain))
+      ),
+    [trustedAddresses?.addresses, chainAsset.chain]
   )
 
   const handleMemo = useCallback(() => {
@@ -159,22 +163,33 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
     return FP.pipe(getCacaoAmountFromBalances(balances, getChainAsset(asset.chain)), O.map(assetToBase))
   }, [asset.chain, balance.amount, balances, isChainAsset])
 
+  const oChainAssetAmount: O.Option<BaseAmount> = useMemo(() => {
+    // return balance of current asset
+    if (isChainAsset) {
+      return O.some(balance.amount)
+    }
+    // or check list of other assets to get balance
+    return FP.pipe(getCacaoAmountFromBalances(balances, chainAsset), O.map(assetToBase))
+  }, [balance.amount, balances, chainAsset, isChainAsset])
+
   const isFeeError = useMemo(() => {
     return FP.pipe(
-      sequenceTOption(oFee, oAssetAmount),
+      sequenceTOption(oFee, oChainAssetAmount),
       O.fold(
         // Missing (or loading) fees does not mean we can't sent something. No error then.
         () => false,
-        ([fee, assetAmount]) => assetAmount.lt(fee)
+        ([fee, assetAmount]) => {
+          return assetAmount.lt(fee)
+        }
       )
     )
-  }, [oAssetAmount, oFee])
+  }, [oChainAssetAmount, oFee])
 
   const renderFeeError = useMemo(() => {
     if (!isFeeError) return <></>
 
     const amount: BaseAmount = FP.pipe(
-      oAssetAmount,
+      oChainAssetAmount,
       // no eth asset == zero amount
       O.getOrElse(() => ZERO_BASE_AMOUNT)
     )
@@ -195,7 +210,7 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
         {msg}
       </Styled.Label>
     )
-  }, [isFeeError, oAssetAmount, intl, asset.chain])
+  }, [isFeeError, oChainAssetAmount, intl, asset.chain])
   const { inboundAddress } = useMemo(() => {
     return FP.pipe(
       oPoolAddress,
@@ -326,7 +341,7 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
     })
 
     const assetFeePrice = getPoolPriceValue({
-      balance: { asset, amount: assetFee.baseAmount },
+      balance: { asset: chainAsset, amount: assetFee.baseAmount },
       poolDetails,
       pricePool
     })
@@ -347,7 +362,7 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
       const maxCryptoAmount = new CryptoAmount(amountPrice.value, pricePool.asset)
       setAmountPriceValue(maxCryptoAmount)
     }
-  }, [amountToSend, asset, assetFee, maxAmount, pricePool, network, poolDetails, mayaScanPrice])
+  }, [amountToSend, asset, assetFee, maxAmount, pricePool, network, poolDetails, mayaScanPrice, chainAsset])
 
   const priceFeeLabel = useMemo(() => {
     if (!feePriceValue) {
@@ -569,12 +584,12 @@ export const SendFormCOSMOS: React.FC<Props> = (props): JSX.Element => {
       FP.pipe(
         feeRD,
         RD.map((fee) => {
-          setAssetFee(new CryptoAmount(fee, getChainAsset(asset.chain)))
-          return [{ asset: getChainAsset(asset.chain), amount: fee }]
+          setAssetFee(new CryptoAmount(fee, chainAsset))
+          return [{ asset: chainAsset, amount: fee }]
         })
       ),
 
-    [asset, feeRD]
+    [chainAsset, feeRD]
   )
 
   const onChangeInput = useCallback(

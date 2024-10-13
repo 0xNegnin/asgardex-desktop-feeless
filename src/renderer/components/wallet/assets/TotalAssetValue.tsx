@@ -9,12 +9,12 @@ import {
   baseToAsset,
   formatAssetAmountCurrency
 } from '@xchainjs/xchain-util'
-// import { useIntl } from 'react-intl'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
 import { AssetUSDC } from '../../../const'
 import { hiddenString } from '../../../helpers/stringHelper'
 import { BaseButton } from '../../uielements/button'
+import { ChartColors } from '../../uielements/chart/utils'
 import { InfoIcon } from '../../uielements/info'
 import * as Styled from './TotalValue.styles'
 
@@ -32,33 +32,10 @@ export const TotalAssetValue: React.FC<Props> = (props): JSX.Element => {
 
   const [showDetails, setShowDetails] = useState<boolean>(false)
   const chartData = useMemo(() => {
-    const COLORS = [
-      '#0088FE', // Vivid Blue
-      '#00C49F', // Aqua Green
-      '#FFBB28', // Vibrant Yellow
-      '#FF8042', // Bright Orange
-      '#A569BD', // Purple
-      '#F4D03F', // Sunflower Yellow
-      '#5DADE2', // Light Blue
-      '#48C9B0', // Medium Aquamarine
-      '#EC7063', // Soft Red
-      '#AF7AC5', // Lavender
-      '#F7DC6F', // Light Goldenrod Yellow
-      '#82E0AA', // Pastel Green
-      '#F5B041', // Tangerine Yellow
-      '#85C1E9', // Sky Blue
-      '#D7DBDD', // Light Gray
-      '#AED6F1', // Pale Blue
-      '#A3E4D7', // Pale Aqua Green
-      '#FAD7A0', // Peach Orange
-      '#F5CBA7', // Light Brown
-      '#CCD1D1' // Iron Gray
-    ]
-    // Define your color scheme
     return Object.entries(balancesByChain).map(([chain, balance], index) => ({
       name: `${chain.split(':')[0]}_${index}_${chain.split(':')[1]}`, // Add an index to make the key unique
       value: hidePrivateData ? 0 : baseToAsset(balance).amount().toNumber(),
-      fillColor: COLORS[index % COLORS.length]
+      fillColor: ChartColors[index % ChartColors.length]
     }))
   }, [balancesByChain, hidePrivateData])
 
@@ -75,6 +52,12 @@ export const TotalAssetValue: React.FC<Props> = (props): JSX.Element => {
     return errorMessages // Return the array of React elements directly.
   }, [errorsByChain])
 
+  const isChartVisible = useMemo(() => {
+    const total = chartData.reduce((acc, { value }) => acc + value, 0)
+
+    return total === 0 ? false : true
+  }, [chartData])
+
   const totalBalanceDisplay = useMemo(() => {
     const total = chartData.reduce((acc, { value }) => acc + value, 0)
     const totalCyrpto = new CryptoAmount(assetToBase(assetAmount(total, 6)), AssetUSDC)
@@ -86,7 +69,7 @@ export const TotalAssetValue: React.FC<Props> = (props): JSX.Element => {
           trimZeros: true,
           decimal: 0
         })
-    return <div className="text-[28px] text-text2 hover:text-turquoise dark:text-text2d">{`${formattedTotal}`}</div>
+    return <div className="text-[28px] text-text2 hover:text-turquoise dark:text-text2d">{formattedTotal}</div>
   }, [chartData, hidePrivateData])
   const filteredChartData = chartData.filter((entry) => entry.value !== 0.0)
 
@@ -101,14 +84,15 @@ export const TotalAssetValue: React.FC<Props> = (props): JSX.Element => {
         className="flex justify-between !p-0 font-mainSemiBold text-[16px] text-text2 hover:text-turquoise dark:text-text2d dark:hover:text-turquoise"
         onClick={() => setShowDetails((current) => !current)}>
         <div className="m-4">{totalBalanceDisplay}</div>
-        {showDetails ? (
-          <MagnifyingGlassMinusIcon className="ease h-[20px] w-[20px] text-inherit group-hover:scale-125" />
-        ) : (
-          <MagnifyingGlassPlusIcon className="ease h-[20px] w-[20px] text-inherit group-hover:scale-125 " />
-        )}
+        {isChartVisible &&
+          (showDetails ? (
+            <MagnifyingGlassMinusIcon className="ease h-[20px] w-[20px] text-inherit group-hover:scale-125" />
+          ) : (
+            <MagnifyingGlassPlusIcon className="ease h-[20px] w-[20px] text-inherit group-hover:scale-125 " />
+          ))}
       </BaseButton>
       {hasErrors && chainErrors}
-      {showDetails && (
+      {isChartVisible && showDetails && (
         <ResponsiveContainer width="100%" height={300}>
           <PieChart>
             <Pie

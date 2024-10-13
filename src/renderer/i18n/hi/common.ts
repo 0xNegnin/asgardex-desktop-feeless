@@ -66,11 +66,14 @@ const common: CommonMessages = {
   'common.test': 'परीक्षण',
   'common.change': 'बदलें',
   'common.wallet': 'वॉलेट',
+  'common.wallets': 'बटुए',
   'common.history': 'इतिहास',
   'common.settings': 'सेटिंग्स',
   'common.asset': 'एसेट',
   'common.assets': 'एसेट्स',
   'common.tradeAssets': 'संपत्तियों का व्यापार',
+  'common.tradeAccount': 'व्यापार खाता',
+  'common.trade': 'व्यापार',
   'common.rune': '{dex}',
   'common.pool': 'पूल',
   'common.pool.inbound': 'इनबाउंड पूल',
@@ -119,10 +122,13 @@ const common: CommonMessages = {
   'common.collateral': 'बंधक',
   'common.debt': 'ऋण',
   'common.earn': 'कमाई',
+  'common.earnings': 'आय',
   'common.liquidity': 'तरलता',
   'common.withdraw': 'निकासी',
   'common.approve': 'स्वीकृति',
   'common.accept': 'स्वीकार करें',
+  'common.allocationByType': 'प्रकार के अनुसार आवंटन',
+  'common.allocationByChain': 'चेन के अनुसार आवंटन',
   'common.approve.checking': '{asset} के लिए स्वीकृति जाँच रहे हैं',
   'common.approve.error': '{asset} के लिए स्वीकृति जाँच में त्रुटि: {error}',
   'common.step': 'चरण {current}/{total}',
@@ -191,6 +197,7 @@ const common: CommonMessages = {
   'common.ledgerlive': 'लेजर लाइव',
   'common.metamask': 'मेटामास्क',
   'common.unknown': 'अज्ञात',
-  'common.featureUnderDevelopment': 'विकासाधीन सुविधा, उपयोग न करें'
+  'common.featureUnderDevelopment': 'विकासाधीन सुविधा, उपयोग न करें',
+  'common.comingSoon': 'जल्द ही आ रहा है'
 }
 export default common

@@ -1,6 +1,19 @@
+# 1.22.6 (2024-10-6)
+
+## Updates/Fixes
+
+- fixed Maya.maya send [#378](https://github.com/asgardex/asgardex-desktop/pull/379)
+- fix Evm deriv paths [#](https://github.com/asgardex/asgardex-desktop/pull/379)
+- fix ledger approve [#390](https://github.com/asgardex/asgardex-desktop/pull/379)
+- fix Cosmos Send Form [#391](https://github.com/asgardex/asgardex-desktop/pull/392)
+- add trade Asset Handling [#381](https://github.com/asgardex/asgardex-desktop/pull/384)
+- update Unlock Wallet Form [#395](https://github.com/asgardex/asgardex-desktop/pull/395)
+- temp fix for PEPE decimals [#387](https://github.com/asgardex/asgardex-desktop/pull/402)
+
 # 1.22.5 (2024-09-6)
 
 ## Add
+
 - re-design application layout[#357](https://github.com/asgardex/asgardex-desktop/pull/357)
 
 ## Updates/Fixes
